@@ -8,6 +8,7 @@ interface TaskListProps {
   loading?: boolean
   onTaskUpdate: (taskId: string, data: any) => void
   onTaskDelete: (taskId: string) => void
+  onCreateSubtask?: (parentId: string, subtaskData: any) => void
   showList?: boolean
 }
 
@@ -16,6 +17,7 @@ export function TaskList({
   loading = false, 
   onTaskUpdate, 
   onTaskDelete, 
+  onCreateSubtask,
   showList = false 
 }: TaskListProps) {
   if (loading) {
@@ -77,6 +79,7 @@ export function TaskList({
               task={task}
               onUpdate={onTaskUpdate}
               onDelete={onTaskDelete}
+              onCreateSubtask={onCreateSubtask}
               showList={showList}
             />
           ))}
@@ -98,6 +101,7 @@ export function TaskList({
               task={task}
               onUpdate={onTaskUpdate}
               onDelete={onTaskDelete}
+              onCreateSubtask={onCreateSubtask}
               showList={showList}
             />
           ))}

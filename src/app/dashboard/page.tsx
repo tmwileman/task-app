@@ -180,7 +180,20 @@ export default function Dashboard() {
 
       if (response.ok) {
         const data = await response.json()
-        setTasks(prev => prev.map(task => task.id === taskId ? data.task : task))
+        setTasks(prev => prev.map(task => {
+          if (task.id === taskId) {
+            return data.task
+          }
+          // Update parent task if this was a subtask
+          if (task.subtasks?.some(subtask => subtask.id === taskId)) {
+            const updatedSubtasks = task.subtasks.map(subtask => 
+              subtask.id === taskId ? { ...subtask, ...updateData } : subtask
+            )
+            return { ...task, subtasks: updatedSubtasks }
+          }
+          return task
+        }))
+        fetchLists() // Update task counts
       }
     } catch (error) {
       console.error('Error updating task:', error)
@@ -199,9 +212,33 @@ export default function Dashboard() {
 
       if (response.ok) {
         setTasks(prev => prev.filter(task => task.id !== taskId))
+        fetchLists() // Update task counts
       }
     } catch (error) {
       console.error('Error deleting task:', error)
+    }
+  }
+
+  const handleCreateSubtask = async (parentId: string, subtaskData: any) => {
+    try {
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...subtaskData,
+          parentId,
+        }),
+      })
+
+      if (response.ok) {
+        // Refresh tasks to get updated subtasks
+        fetchTasks(searchQuery, selectedListId)
+        fetchLists() // Update task counts
+      }
+    } catch (error) {
+      console.error('Error creating subtask:', error)
     }
   }
 
@@ -336,6 +373,7 @@ export default function Dashboard() {
             loading={loading}
             onTaskUpdate={handleUpdateTask}
             onTaskDelete={handleDeleteTask}
+            onCreateSubtask={handleCreateSubtask}
             showList={false}
           />
           </div>

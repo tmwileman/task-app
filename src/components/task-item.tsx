@@ -8,12 +8,16 @@ interface TaskItemProps {
   task: TaskWithRelations
   onUpdate: (taskId: string, data: any) => void
   onDelete: (taskId: string) => void
+  onCreateSubtask?: (parentId: string, subtaskData: any) => void
   showList?: boolean
 }
 
-export function TaskItem({ task, onUpdate, onDelete, showList = false }: TaskItemProps) {
+export function TaskItem({ task, onUpdate, onDelete, onCreateSubtask, showList = false }: TaskItemProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(task.title)
+  const [showSubtasks, setShowSubtasks] = useState(false)
+  const [isAddingSubtask, setIsAddingSubtask] = useState(false)
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('')
 
   const getPriorityColor = (priority: Priority) => {
     switch (priority) {
@@ -44,6 +48,22 @@ export function TaskItem({ task, onUpdate, onDelete, showList = false }: TaskIte
   const handleCancelEdit = () => {
     setEditTitle(task.title)
     setIsEditing(false)
+  }
+
+  const handleAddSubtask = () => {
+    if (!newSubtaskTitle.trim() || !onCreateSubtask) return
+    
+    onCreateSubtask(task.id, {
+      title: newSubtaskTitle.trim(),
+      priority: 'MEDIUM',
+    })
+    
+    setNewSubtaskTitle('')
+    setIsAddingSubtask(false)
+  }
+
+  const handleSubtaskToggle = (subtaskId: string, completed: boolean) => {
+    onUpdate(subtaskId, { completed })
   }
 
   const formatDate = (date: Date | null) => {
@@ -152,9 +172,35 @@ export function TaskItem({ task, onUpdate, onDelete, showList = false }: TaskIte
                 )}
                 
                 {task.subtasks && task.subtasks.length > 0 && (
-                  <span>
-                    Subtasks: {task.subtasks.filter(st => st.completed).length}/{task.subtasks.length}
-                  </span>
+                  <button
+                    onClick={() => setShowSubtasks(!showSubtasks)}
+                    className="text-blue-600 hover:text-blue-700 flex items-center space-x-1"
+                  >
+                    <span>
+                      Subtasks: {task.subtasks.filter(st => st.completed).length}/{task.subtasks.length}
+                    </span>
+                    <svg 
+                      className={`w-3 h-3 transition-transform ${showSubtasks ? 'rotate-180' : ''}`}
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                )}
+                
+                {/* Add Subtask Button */}
+                {!task.parentId && (
+                  <button
+                    onClick={() => setIsAddingSubtask(true)}
+                    className="text-gray-500 hover:text-blue-600 flex items-center space-x-1"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span>Add subtask</span>
+                  </button>
                 )}
               </div>
             </>
@@ -183,6 +229,87 @@ export function TaskItem({ task, onUpdate, onDelete, showList = false }: TaskIte
           </div>
         )}
       </div>
+      
+      {/* Subtasks Section */}
+      {(showSubtasks || isAddingSubtask) && (
+        <div className="mt-3 ml-7 space-y-2">
+          {/* Existing Subtasks */}
+          {showSubtasks && task.subtasks && task.subtasks.map((subtask) => (
+            <div key={subtask.id} className="flex items-center space-x-2 p-2 bg-gray-50 rounded border-l-2 border-gray-200">
+              <button
+                onClick={() => handleSubtaskToggle(subtask.id, !subtask.completed)}
+                className={`w-3 h-3 rounded border flex items-center justify-center transition-colors ${
+                  subtask.completed
+                    ? 'bg-green-500 border-green-500 text-white'
+                    : 'border-gray-300 hover:border-green-400'
+                }`}
+              >
+                {subtask.completed && (
+                  <svg className="w-2 h-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path
+                      fillRule="evenodd"
+                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                )}
+              </button>
+              <span className={`text-sm flex-1 ${subtask.completed ? 'line-through text-gray-500' : 'text-gray-700'}`}>
+                {subtask.title}
+              </span>
+              <button
+                onClick={() => onDelete(subtask.id)}
+                className="text-gray-400 hover:text-red-600 p-1"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          ))}
+          
+          {/* Add Subtask Form */}
+          {isAddingSubtask && (
+            <div className="flex items-center space-x-2 p-2 bg-blue-50 rounded border-l-2 border-blue-200">
+              <div className="w-3 h-3 rounded border border-gray-300"></div>
+              <input
+                type="text"
+                value={newSubtaskTitle}
+                onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                placeholder="Enter subtask title..."
+                className="flex-1 text-sm px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleAddSubtask()
+                  if (e.key === 'Escape') {
+                    setIsAddingSubtask(false)
+                    setNewSubtaskTitle('')
+                  }
+                }}
+                autoFocus
+              />
+              <button
+                onClick={handleAddSubtask}
+                className="text-green-600 hover:text-green-700 p-1"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+              <button
+                onClick={() => {
+                  setIsAddingSubtask(false)
+                  setNewSubtaskTitle('')
+                }}
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
