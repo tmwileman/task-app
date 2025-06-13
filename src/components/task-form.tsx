@@ -9,16 +9,26 @@ interface TaskFormProps {
     description?: string
     priority: Priority
     dueDate?: string
+    listId?: string
   }) => void
   onCancel?: () => void
   isSubmitting?: boolean
+  lists?: Array<{ id: string; name: string; color?: string }>
+  selectedListId?: string
 }
 
-export function TaskForm({ onSubmit, onCancel, isSubmitting = false }: TaskFormProps) {
+export function TaskForm({ 
+  onSubmit, 
+  onCancel, 
+  isSubmitting = false, 
+  lists = [], 
+  selectedListId 
+}: TaskFormProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<Priority>(Priority.MEDIUM)
   const [dueDate, setDueDate] = useState('')
+  const [listId, setListId] = useState(selectedListId || '')
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
 
   const validateForm = () => {
@@ -48,6 +58,7 @@ export function TaskForm({ onSubmit, onCancel, isSubmitting = false }: TaskFormP
       description: description.trim() || undefined,
       priority,
       dueDate: dueDate || undefined,
+      listId: listId || undefined,
     })
 
     // Reset form
@@ -55,6 +66,7 @@ export function TaskForm({ onSubmit, onCancel, isSubmitting = false }: TaskFormP
     setDescription('')
     setPriority(Priority.MEDIUM)
     setDueDate('')
+    setListId(selectedListId || '')
     setErrors({})
   }
 
@@ -98,7 +110,7 @@ export function TaskForm({ onSubmit, onCancel, isSubmitting = false }: TaskFormP
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
               Priority
@@ -114,6 +126,26 @@ export function TaskForm({ onSubmit, onCancel, isSubmitting = false }: TaskFormP
               <option value={Priority.MEDIUM}>Medium</option>
               <option value={Priority.HIGH}>High</option>
               <option value={Priority.URGENT}>Urgent</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="listId" className="block text-sm font-medium text-gray-700 mb-1">
+              List
+            </label>
+            <select
+              id="listId"
+              value={listId}
+              onChange={(e) => setListId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              disabled={isSubmitting}
+            >
+              <option value="">No List</option>
+              {lists.map((list) => (
+                <option key={list.id} value={list.id}>
+                  {list.name}
+                </option>
+              ))}
             </select>
           </div>
 

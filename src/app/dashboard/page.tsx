@@ -5,13 +5,17 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { TaskForm } from '@/components/task-form'
 import { TaskList } from '@/components/task-list'
-import { TaskWithRelations } from '@/types'
+import { TaskListSidebar } from '@/components/task-list-sidebar'
+import { TaskWithRelations, TaskListWithRelations } from '@/types'
 
 export default function Dashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const [tasks, setTasks] = useState<TaskWithRelations[]>([])
+  const [lists, setLists] = useState<TaskListWithRelations[]>([])
+  const [selectedListId, setSelectedListId] = useState<string | undefined>()
   const [loading, setLoading] = useState(true)
+  const [listsLoading, setListsLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -25,15 +29,25 @@ export default function Dashboard() {
   useEffect(() => {
     if (session?.user?.id) {
       fetchTasks()
+      fetchLists()
     }
   }, [session])
 
-  const fetchTasks = async (search?: string) => {
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchTasks(searchQuery, selectedListId)
+    }
+  }, [session, selectedListId])
+
+  const fetchTasks = async (search?: string, listId?: string) => {
     try {
       setLoading(true)
       const params = new URLSearchParams()
       if (search) {
         params.set('search', search)
+      }
+      if (listId) {
+        params.set('listId', listId)
       }
       const response = await fetch(`/api/tasks?${params}`)
       if (response.ok) {
@@ -47,9 +61,28 @@ export default function Dashboard() {
     }
   }
 
+  const fetchLists = async () => {
+    try {
+      setListsLoading(true)
+      const response = await fetch('/api/lists')
+      if (response.ok) {
+        const data = await response.json()
+        setLists(data.lists)
+      }
+    } catch (error) {
+      console.error('Error fetching lists:', error)
+    } finally {
+      setListsLoading(false)
+    }
+  }
+
   const handleSearch = (query: string) => {
     setSearchQuery(query)
-    fetchTasks(query)
+    fetchTasks(query, selectedListId)
+  }
+
+  const handleSelectList = (listId?: string) => {
+    setSelectedListId(listId)
   }
 
   const handleCreateTask = async (taskData: any) => {
@@ -60,18 +93,78 @@ export default function Dashboard() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(taskData),
+        body: JSON.stringify({
+          ...taskData,
+          listId: selectedListId || taskData.listId,
+        }),
       })
 
       if (response.ok) {
         const data = await response.json()
         setTasks(prev => [data.task, ...prev])
         setShowForm(false)
+        fetchLists() // Refresh list counts
       }
     } catch (error) {
       console.error('Error creating task:', error)
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleCreateList = async (listData: any) => {
+    try {
+      const response = await fetch('/api/lists', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(listData),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setLists(prev => [...prev, data.list])
+      }
+    } catch (error) {
+      console.error('Error creating list:', error)
+    }
+  }
+
+  const handleUpdateList = async (listId: string, updateData: any) => {
+    try {
+      const response = await fetch(`/api/lists/${listId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setLists(prev => prev.map(list => list.id === listId ? data.list : list))
+      }
+    } catch (error) {
+      console.error('Error updating list:', error)
+    }
+  }
+
+  const handleDeleteList = async (listId: string) => {
+    try {
+      const response = await fetch(`/api/lists/${listId}`, {
+        method: 'DELETE',
+      })
+
+      if (response.ok) {
+        setLists(prev => prev.filter(list => list.id !== listId))
+        if (selectedListId === listId) {
+          setSelectedListId(undefined)
+        }
+        fetchTasks(searchQuery) // Refresh tasks
+      }
+    } catch (error) {
+      console.error('Error deleting list:', error)
     }
   }
 
@@ -128,46 +221,67 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-gray-900">Task App</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                {session.user?.image && (
-                  <img
-                    className="h-8 w-8 rounded-full"
-                    src={session.user.image}
-                    alt={session.user.name || 'User'}
-                  />
-                )}
-                <span className="text-sm font-medium text-gray-700">
-                  {session.user?.name || session.user?.email}
-                </span>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <TaskListSidebar
+        lists={lists}
+        selectedListId={selectedListId}
+        onSelectList={handleSelectList}
+        onCreateList={handleCreateList}
+        onUpdateList={handleUpdateList}
+        onDeleteList={handleDeleteList}
+        loading={listsLoading}
+      />
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        <nav className="bg-white shadow">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between h-16">
+              <div className="flex items-center">
+                <h1 className="text-xl font-semibold text-gray-900">Task App</h1>
               </div>
-              <button
-                onClick={() => signOut()}
-                className="text-sm text-gray-500 hover:text-gray-700"
-              >
-                Sign out
-              </button>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  {session.user?.image && (
+                    <img
+                      className="h-8 w-8 rounded-full"
+                      src={session.user.image}
+                      alt={session.user.name || 'User'}
+                    />
+                  )}
+                  <span className="text-sm font-medium text-gray-700">
+                    {session.user?.name || session.user?.email}
+                  </span>
+                </div>
+                <button
+                  onClick={() => signOut()}
+                  className="text-sm text-gray-500 hover:text-gray-700"
+                >
+                  Sign out
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      </nav>
+        </nav>
 
-      <main className="max-w-4xl mx-auto py-6 sm:px-6 lg:px-8">
-        <div className="px-4 py-6 sm:px-0">
+        <main className="flex-1 max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8 w-full">
+          <div className="py-6">
           {/* Header */}
           <div className="mb-6">
             <div className="flex justify-between items-center mb-4">
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">My Tasks</h1>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {selectedListId 
+                    ? lists.find(l => l.id === selectedListId)?.name || 'Tasks'
+                    : 'All Tasks'
+                  }
+                </h1>
                 <p className="text-gray-600">
-                  Hello {session.user?.name || session.user?.email}! Manage your tasks here.
+                  {selectedListId 
+                    ? `Tasks in ${lists.find(l => l.id === selectedListId)?.name || 'this list'}`
+                    : 'All your tasks across all lists'
+                  }
                 </p>
               </div>
               <button
@@ -210,6 +324,8 @@ export default function Dashboard() {
                 onSubmit={handleCreateTask}
                 onCancel={() => setShowForm(false)}
                 isSubmitting={isSubmitting}
+                lists={lists}
+                selectedListId={selectedListId}
               />
             </div>
           )}
@@ -222,8 +338,9 @@ export default function Dashboard() {
             onTaskDelete={handleDeleteTask}
             showList={false}
           />
-        </div>
-      </main>
+          </div>
+        </main>
+      </div>
     </div>
   )
 }

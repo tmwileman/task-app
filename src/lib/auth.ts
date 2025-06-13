@@ -41,6 +41,41 @@ export const authOptions: NextAuthOptions = {
   events: {
     async createUser({ user }) {
       console.log('New user created:', user.email)
+      
+      // Create default lists for new user
+      try {
+        await db.taskList.createMany({
+          data: [
+            {
+              name: 'Today',
+              description: 'Tasks for today',
+              color: '#3b82f6',
+              isDefault: true,
+              order: 0,
+              userId: user.id,
+            },
+            {
+              name: 'Upcoming',
+              description: 'Future tasks',
+              color: '#10b981',
+              isDefault: true,
+              order: 1,
+              userId: user.id,
+            },
+            {
+              name: 'Personal',
+              description: 'Personal tasks and goals',
+              color: '#8b5cf6',
+              isDefault: false,
+              order: 2,
+              userId: user.id,
+            },
+          ],
+        })
+        console.log('Default lists created for user:', user.email)
+      } catch (error) {
+        console.error('Error creating default lists:', error)
+      }
     },
   },
 }
