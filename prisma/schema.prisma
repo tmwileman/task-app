@@ -96,6 +96,8 @@ model Task {
   title       String
   description String?
   completed   Boolean   @default(false)
+  archived    Boolean   @default(false)
+  archivedAt  DateTime?
   priority    Priority  @default(MEDIUM)
   dueDate     DateTime?
   reminder    DateTime?
@@ -125,12 +127,13 @@ model Task {
   scheduledReminders ScheduledReminder[]
 
   // Performance indexes
-  @@index([userId, completed, createdAt(sort: Desc)]) // Main task queries
-  @@index([userId, listId, completed]) // List filtering
-  @@index([userId, dueDate]) // Due date filtering
-  @@index([userId, parentId]) // Subtask queries
-  @@index([dueDate, completed]) // Overdue detection
-  @@index([priority, dueDate]) // Priority + due date sorting
+  @@index([userId, completed, archived, createdAt(sort: Desc)]) // Main task queries
+  @@index([userId, listId, completed, archived]) // List filtering
+  @@index([userId, dueDate, archived]) // Due date filtering
+  @@index([userId, parentId, archived]) // Subtask queries
+  @@index([userId, archived, archivedAt(sort: Desc)]) // Archive management
+  @@index([dueDate, completed, archived]) // Overdue detection
+  @@index([priority, dueDate, archived]) // Priority + due date sorting
   @@index([createdAt]) // Pagination cursor
   @@map("tasks")
 }
