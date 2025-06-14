@@ -67,14 +67,14 @@ Building a modern, fast, and simple task management web application using Next.j
 - [x] Implement task tags and labels
 - [x] Create default lists (Today, Upcoming, Completed)
 
-### Checkpoint 2.3: Subtasks & Task Hierarchy
+### Checkpoint 2.3: Subtasks & Task Hierarchy ✅ COMPLETED
 **Tasks:**
-- [ ] Design subtask data model
-- [ ] Implement nested subtask creation
-- [ ] Add subtask progress tracking
-- [ ] Create collapsible task hierarchy UI
-- [ ] Add bulk subtask operations
-- [ ] Implement subtask completion cascading
+- [x] Design subtask data model
+- [x] Implement nested subtask creation
+- [x] Add subtask progress tracking
+- [x] Create collapsible task hierarchy UI
+- [x] Add bulk subtask operations
+- [x] Implement subtask completion cascading
 
 ---
 
@@ -413,9 +413,77 @@ Building a modern, fast, and simple task management web application using Next.j
 
 ### 🔄 Current Status
 - **Phase 1 Progress:** 3/3 checkpoints completed (100%)
-- **Phase 2 Progress:** 2/3 checkpoints completed (67%)
-- **Next Checkpoint:** 2.3 Subtasks & Task Hierarchy
-- **Overall Progress:** Task organization complete, ready for subtask features
+- **Phase 2 Progress:** 3/3 checkpoints completed (100%)
+- **Next Checkpoint:** 3.1 Due Dates & Scheduling
+- **Overall Progress:** Core task management with hierarchical subtasks complete, ready for time management features
+
+---
+
+## 🎯 Checkpoint 2.3: Subtasks & Task Hierarchy - Implementation Plan
+
+### Overview
+Building on the existing task management system to add hierarchical subtask functionality. The database schema already supports parent-child relationships through the `parentId` field and self-referential relations.
+
+### Todo Items for Checkpoint 2.3
+- [x] **Task 1:** Design subtask data model (already done - verify existing schema)
+- [x] **Task 2:** Implement nested subtask creation in task form
+- [x] **Task 3:** Add subtask progress tracking to parent tasks
+- [x] **Task 4:** Create collapsible task hierarchy UI components
+- [x] **Task 5:** Add bulk subtask operations (complete all, delete all)
+- [x] **Task 6:** Implement subtask completion cascading logic
+
+### Implementation Strategy
+1. **Keep it simple:** Build on existing components rather than creating new ones
+2. **Incremental approach:** Add subtask creation first, then UI enhancements
+3. **Minimal code changes:** Extend existing task form and list components
+4. **User experience focus:** Intuitive nested task display and interaction
+
+### Technical Approach
+- Extend existing API endpoints to handle subtask queries
+- Add subtask creation capability to the task form
+- Modify task list component to show hierarchical structure
+- Implement progress tracking by counting completed subtasks
+- Add collapse/expand functionality for parent tasks
+
+### Expected Files to Modify
+- `src/components/task-form.tsx` - Add subtask creation
+- `src/components/task-item.tsx` - Display subtasks and progress
+- `src/components/task-list.tsx` - Handle hierarchical rendering
+- `src/app/api/tasks/route.ts` - Include subtasks in queries
+- Database queries in API routes for nested data
+
+### ✅ Checkpoint 2.3 Review - COMPLETED
+
+**What was implemented:**
+1. **Subtask Data Model:** Verified existing schema supports hierarchical tasks with `parentId` and self-referential relationships
+2. **Subtask Creation:** Enhanced TaskForm component to support creating subtasks with parent context indication
+3. **Progress Tracking:** Added visual progress bar and completion counters for parent tasks showing subtask completion status
+4. **Collapsible UI:** Implemented expandable/collapsible subtask sections with smooth animations and visual hierarchy
+5. **Bulk Operations:** Added "Complete All" and "Delete All" buttons for subtask management
+6. **Completion Cascading:** Auto-complete parent tasks when all subtasks are done; auto-uncomplete when subtasks are uncompleted
+
+**Key Features Delivered:**
+- ✅ Inline subtask creation with "Add subtask" button (parent tasks only)
+- ✅ Progress visualization with completion counters and progress bars
+- ✅ Expandable/collapsible subtask lists with rotation arrow indicators
+- ✅ Bulk actions for completing or deleting all subtasks
+- ✅ Smart completion cascading logic for parent-child task relationships
+- ✅ Visual hierarchy with indentation and distinct styling for subtasks
+- ✅ Seamless integration with existing task management workflow
+
+**Files Modified:**
+- `src/components/task-form.tsx` - Added `parentId` and `parentTask` props for subtask creation context
+- `src/components/task-item.tsx` - Enhanced with progress tracking, bulk actions, and cascading logic
+- `src/components/task-list.tsx` - Added bulk action prop passing
+- `src/app/dashboard/page.tsx` - Implemented bulk subtask operations and completion cascading handlers
+
+**Technical Approach:**
+- Built on existing database schema and API endpoints (no backend changes needed)
+- Extended existing components rather than creating new ones
+- Simple, incremental changes following established patterns
+- Maintained existing functionality while adding hierarchical capabilities
+
+---
 
 ### 📝 Notes
 - Following CLAUDE.md workflow: simple, incremental changes

@@ -189,7 +189,24 @@ export default function Dashboard() {
             const updatedSubtasks = task.subtasks.map(subtask => 
               subtask.id === taskId ? { ...subtask, ...updateData } : subtask
             )
-            return { ...task, subtasks: updatedSubtasks }
+            
+            // Subtask completion cascading logic
+            let updatedTask = { ...task, subtasks: updatedSubtasks }
+            if (updateData.completed !== undefined && updatedSubtasks.length > 0) {
+              const allSubtasksCompleted = updatedSubtasks.every(st => st.completed)
+              const someSubtasksCompleted = updatedSubtasks.some(st => st.completed)
+              
+              // Auto-complete parent when all subtasks are completed
+              if (allSubtasksCompleted && !task.completed) {
+                handleUpdateTask(task.id, { completed: true })
+              }
+              // Auto-uncomplete parent when any subtask is uncompleted and parent is completed
+              else if (!allSubtasksCompleted && task.completed) {
+                handleUpdateTask(task.id, { completed: false })
+              }
+            }
+            
+            return updatedTask
           }
           return task
         }))
@@ -239,6 +256,36 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('Error creating subtask:', error)
+    }
+  }
+
+  const handleBulkSubtaskAction = async (parentId: string, action: 'complete' | 'delete') => {
+    try {
+      const parentTask = tasks.find(task => task.id === parentId)
+      if (!parentTask?.subtasks) return
+
+      if (action === 'complete') {
+        // Complete all incomplete subtasks
+        const incompleteSubtasks = parentTask.subtasks.filter(st => !st.completed)
+        await Promise.all(
+          incompleteSubtasks.map(subtask =>
+            handleUpdateTask(subtask.id, { completed: true })
+          )
+        )
+      } else if (action === 'delete') {
+        // Delete all subtasks
+        await Promise.all(
+          parentTask.subtasks.map(subtask =>
+            fetch(`/api/tasks/${subtask.id}`, { method: 'DELETE' })
+          )
+        )
+      }
+
+      // Refresh tasks and lists
+      fetchTasks(searchQuery, selectedListId)
+      fetchLists()
+    } catch (error) {
+      console.error('Error with bulk subtask action:', error)
     }
   }
 
@@ -374,6 +421,7 @@ export default function Dashboard() {
             onTaskUpdate={handleUpdateTask}
             onTaskDelete={handleDeleteTask}
             onCreateSubtask={handleCreateSubtask}
+            onBulkSubtaskAction={handleBulkSubtaskAction}
             showList={false}
           />
           </div>

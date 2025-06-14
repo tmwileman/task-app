@@ -9,10 +9,11 @@ interface TaskItemProps {
   onUpdate: (taskId: string, data: any) => void
   onDelete: (taskId: string) => void
   onCreateSubtask?: (parentId: string, subtaskData: any) => void
+  onBulkSubtaskAction?: (parentId: string, action: 'complete' | 'delete') => void
   showList?: boolean
 }
 
-export function TaskItem({ task, onUpdate, onDelete, onCreateSubtask, showList = false }: TaskItemProps) {
+export function TaskItem({ task, onUpdate, onDelete, onCreateSubtask, onBulkSubtaskAction, showList = false }: TaskItemProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(task.title)
   const [showSubtasks, setShowSubtasks] = useState(false)
@@ -64,6 +65,18 @@ export function TaskItem({ task, onUpdate, onDelete, onCreateSubtask, showList =
 
   const handleSubtaskToggle = (subtaskId: string, completed: boolean) => {
     onUpdate(subtaskId, { completed })
+  }
+
+  const handleBulkSubtaskAction = (action: 'complete' | 'delete') => {
+    if (!onBulkSubtaskAction) return
+    
+    if (action === 'delete') {
+      if (!confirm('Are you sure you want to delete all subtasks?')) {
+        return
+      }
+    }
+    
+    onBulkSubtaskAction(task.id, action)
   }
 
   const formatDate = (date: Date | null) => {
@@ -172,22 +185,33 @@ export function TaskItem({ task, onUpdate, onDelete, onCreateSubtask, showList =
                 )}
                 
                 {task.subtasks && task.subtasks.length > 0 && (
-                  <button
-                    onClick={() => setShowSubtasks(!showSubtasks)}
-                    className="text-blue-600 hover:text-blue-700 flex items-center space-x-1"
-                  >
-                    <span>
-                      Subtasks: {task.subtasks.filter(st => st.completed).length}/{task.subtasks.length}
-                    </span>
-                    <svg 
-                      className={`w-3 h-3 transition-transform ${showSubtasks ? 'rotate-180' : ''}`}
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setShowSubtasks(!showSubtasks)}
+                      className="text-blue-600 hover:text-blue-700 flex items-center space-x-1"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
+                      <span>
+                        Subtasks: {task.subtasks.filter(st => st.completed).length}/{task.subtasks.length}
+                      </span>
+                      <svg 
+                        className={`w-3 h-3 transition-transform ${showSubtasks ? 'rotate-180' : ''}`}
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                    {/* Progress Bar */}
+                    <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-blue-500 transition-all duration-300 ease-out"
+                        style={{ 
+                          width: `${(task.subtasks.filter(st => st.completed).length / task.subtasks.length) * 100}%` 
+                        }}
+                      />
+                    </div>
+                  </div>
                 )}
                 
                 {/* Add Subtask Button */}
@@ -233,6 +257,25 @@ export function TaskItem({ task, onUpdate, onDelete, onCreateSubtask, showList =
       {/* Subtasks Section */}
       {(showSubtasks || isAddingSubtask) && (
         <div className="mt-3 ml-7 space-y-2">
+          {/* Bulk Actions */}
+          {showSubtasks && task.subtasks && task.subtasks.length > 0 && (
+            <div className="flex items-center space-x-2 pb-2 border-b border-gray-100">
+              <span className="text-xs text-gray-500">Bulk actions:</span>
+              <button
+                onClick={() => handleBulkSubtaskAction('complete')}
+                className="text-xs px-2 py-1 bg-green-50 text-green-600 rounded hover:bg-green-100 transition-colors"
+                disabled={task.subtasks.every(st => st.completed)}
+              >
+                Complete all
+              </button>
+              <button
+                onClick={() => handleBulkSubtaskAction('delete')}
+                className="text-xs px-2 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
+              >
+                Delete all
+              </button>
+            </div>
+          )}
           {/* Existing Subtasks */}
           {showSubtasks && task.subtasks && task.subtasks.map((subtask) => (
             <div key={subtask.id} className="flex items-center space-x-2 p-2 bg-gray-50 rounded border-l-2 border-gray-200">

@@ -10,11 +10,14 @@ interface TaskFormProps {
     priority: Priority
     dueDate?: string
     listId?: string
+    parentId?: string
   }) => void
   onCancel?: () => void
   isSubmitting?: boolean
   lists?: Array<{ id: string; name: string; color?: string }>
   selectedListId?: string
+  parentId?: string
+  parentTask?: { title: string }
 }
 
 export function TaskForm({ 
@@ -22,7 +25,9 @@ export function TaskForm({
   onCancel, 
   isSubmitting = false, 
   lists = [], 
-  selectedListId 
+  selectedListId,
+  parentId,
+  parentTask
 }: TaskFormProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -59,6 +64,7 @@ export function TaskForm({
       priority,
       dueDate: dueDate || undefined,
       listId: listId || undefined,
+      parentId: parentId || undefined,
     })
 
     // Reset form
@@ -72,7 +78,16 @@ export function TaskForm({
 
   return (
     <div className="bg-white p-6 rounded-lg shadow border">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Create New Task</h3>
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        {parentTask ? `Add Subtask to "${parentTask.title}"` : 'Create New Task'}
+      </h3>
+      {parentTask && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <p className="text-sm text-blue-800">
+            <span className="font-medium">Parent Task:</span> {parentTask.title}
+          </p>
+        </div>
+      )}
       
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
