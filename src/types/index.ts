@@ -1,4 +1,4 @@
-import { Priority, Task, TaskList, Tag, User } from '@prisma/client'
+import { Priority, Task, TaskList, Tag, User, RecurringType } from '@prisma/client'
 
 // Extended types with relations
 export type TaskWithRelations = Task & {
@@ -29,6 +29,11 @@ export type CreateTaskData = {
   dueDate?: Date
   listId?: string
   parentId?: string
+  isRecurring?: boolean
+  recurringType?: RecurringType
+  recurringInterval?: number
+  recurringDays?: string
+  recurringUntil?: Date
 }
 
 export type UpdateTaskData = Partial<{

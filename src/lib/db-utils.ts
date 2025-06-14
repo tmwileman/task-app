@@ -75,6 +75,7 @@ export async function getTasksByUser(userId: string, filters?: {
   completed?: boolean
   priority?: Priority
   search?: string
+  filter?: string
 }) {
   const where: Prisma.TaskWhereInput = {
     userId,
@@ -98,6 +99,50 @@ export async function getTasksByUser(userId: string, filters?: {
       { title: { contains: filters.search, mode: 'insensitive' } },
       { description: { contains: filters.search, mode: 'insensitive' } },
     ]
+  }
+
+  // Time-based filtering
+  if (filters?.filter) {
+    const now = new Date()
+    
+    switch (filters.filter) {
+      case 'today':
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        const endOfToday = new Date(startOfToday)
+        endOfToday.setDate(endOfToday.getDate() + 1)
+        where.dueDate = {
+          gte: startOfToday,
+          lt: endOfToday,
+        }
+        break
+        
+      case 'tomorrow':
+        const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+        const endOfTomorrow = new Date(startOfTomorrow)
+        endOfTomorrow.setDate(endOfTomorrow.getDate() + 1)
+        where.dueDate = {
+          gte: startOfTomorrow,
+          lt: endOfTomorrow,
+        }
+        break
+        
+      case 'week':
+        const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        const endOfWeek = new Date(startOfWeek)
+        endOfWeek.setDate(endOfWeek.getDate() + 7)
+        where.dueDate = {
+          gte: startOfWeek,
+          lt: endOfWeek,
+        }
+        break
+        
+      case 'overdue':
+        where.dueDate = {
+          lt: now,
+        }
+        where.completed = false
+        break
+    }
   }
 
   return await db.task.findMany({
@@ -293,4 +338,123 @@ export async function getDashboardData(userId: string) {
     todayTasks,
     upcomingTasks,
   }
+}
+
+// Task scheduling algorithms
+export function suggestOptimalDueDate(priority: Priority, estimatedHours?: number): Date {
+  const now = new Date()
+  let daysToAdd = 7 // Default: one week
+  
+  switch (priority) {
+    case Priority.URGENT:
+      daysToAdd = 1 // Tomorrow
+      break
+    case Priority.HIGH:
+      daysToAdd = 3 // 3 days
+      break
+    case Priority.MEDIUM:
+      daysToAdd = 7 // 1 week
+      break
+    case Priority.LOW:
+      daysToAdd = 14 // 2 weeks
+      break
+  }
+  
+  // Adjust based on estimated hours
+  if (estimatedHours) {
+    if (estimatedHours > 8) daysToAdd += 3 // Large tasks need more time
+    if (estimatedHours > 16) daysToAdd += 7 // Very large tasks
+  }
+  
+  const suggestedDate = new Date(now)
+  suggestedDate.setDate(now.getDate() + daysToAdd)
+  
+  // Don't schedule on weekends for work tasks
+  const dayOfWeek = suggestedDate.getDay()
+  if (dayOfWeek === 0) { // Sunday
+    suggestedDate.setDate(suggestedDate.getDate() + 1)
+  } else if (dayOfWeek === 6) { // Saturday
+    suggestedDate.setDate(suggestedDate.getDate() + 2)
+  }
+  
+  // Set to 9 AM on the suggested day
+  suggestedDate.setHours(9, 0, 0, 0)
+  
+  return suggestedDate
+}
+
+export function calculateNextRecurrence(
+  lastDate: Date, 
+  recurringType: string, 
+  interval: number = 1
+): Date {
+  const nextDate = new Date(lastDate)
+  
+  switch (recurringType) {
+    case 'DAILY':
+      nextDate.setDate(nextDate.getDate() + interval)
+      break
+    case 'WEEKLY':
+      nextDate.setDate(nextDate.getDate() + (7 * interval))
+      break
+    case 'MONTHLY':
+      nextDate.setMonth(nextDate.getMonth() + interval)
+      break
+    case 'YEARLY':
+      nextDate.setFullYear(nextDate.getFullYear() + interval)
+      break
+  }
+  
+  return nextDate
+}
+
+export async function createRecurringTaskInstance(originalTaskId: string) {
+  const originalTask = await db.task.findUnique({
+    where: { id: originalTaskId },
+    include: { tags: true }
+  })
+  
+  if (!originalTask || !originalTask.isRecurring || !originalTask.recurringType) {
+    return null
+  }
+  
+  const nextDueDate = calculateNextRecurrence(
+    originalTask.dueDate || new Date(),
+    originalTask.recurringType,
+    originalTask.recurringInterval || 1
+  )
+  
+  // Check if we should stop recurring
+  if (originalTask.recurringUntil && nextDueDate > originalTask.recurringUntil) {
+    return null
+  }
+  
+  // Create new task instance
+  const newTask = await db.task.create({
+    data: {
+      title: originalTask.title,
+      description: originalTask.description,
+      priority: originalTask.priority,
+      dueDate: nextDueDate,
+      reminder: originalTask.reminder ? 
+        new Date(nextDueDate.getTime() - (originalTask.dueDate!.getTime() - originalTask.reminder.getTime())) : 
+        null,
+      userId: originalTask.userId,
+      listId: originalTask.listId,
+      isRecurring: true,
+      recurringType: originalTask.recurringType,
+      recurringInterval: originalTask.recurringInterval,
+      recurringDays: originalTask.recurringDays,
+      recurringUntil: originalTask.recurringUntil,
+      order: await getNextTaskOrder(originalTask.listId),
+    }
+  })
+  
+  // Update the original task's lastRecurrence
+  await db.task.update({
+    where: { id: originalTaskId },
+    data: { lastRecurrence: new Date() }
+  })
+  
+  return newTask
 }

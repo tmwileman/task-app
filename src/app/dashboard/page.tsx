@@ -7,6 +7,7 @@ import { TaskForm } from '@/components/task-form'
 import { TaskList } from '@/components/task-list'
 import { TaskListSidebar } from '@/components/task-list-sidebar'
 import { TaskWithRelations, TaskListWithRelations } from '@/types'
+import NotificationManager from '@/lib/notifications'
 
 export default function Dashboard() {
   const { data: session, status } = useSession()
@@ -14,6 +15,7 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState<TaskWithRelations[]>([])
   const [lists, setLists] = useState<TaskListWithRelations[]>([])
   const [selectedListId, setSelectedListId] = useState<string | undefined>()
+  const [selectedFilter, setSelectedFilter] = useState<string | undefined>()
   const [loading, setLoading] = useState(true)
   const [listsLoading, setListsLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -30,16 +32,28 @@ export default function Dashboard() {
     if (session?.user?.id) {
       fetchTasks()
       fetchLists()
+      
+      // Initialize notifications
+      NotificationManager.requestPermission()
+      
+      // Set up periodic deadline checking (every 5 minutes)
+      const deadlineCheckInterval = setInterval(() => {
+        if (tasks.length > 0) {
+          NotificationManager.checkForUpcomingDeadlines(tasks)
+        }
+      }, 5 * 60 * 1000)
+      
+      return () => clearInterval(deadlineCheckInterval)
     }
   }, [session])
 
   useEffect(() => {
     if (session?.user?.id) {
-      fetchTasks(searchQuery, selectedListId)
+      fetchTasks(searchQuery, selectedListId, selectedFilter)
     }
-  }, [session, selectedListId])
+  }, [session, selectedListId, selectedFilter])
 
-  const fetchTasks = async (search?: string, listId?: string) => {
+  const fetchTasks = async (search?: string, listId?: string, filter?: string) => {
     try {
       setLoading(true)
       const params = new URLSearchParams()
@@ -49,10 +63,16 @@ export default function Dashboard() {
       if (listId) {
         params.set('listId', listId)
       }
+      if (filter) {
+        params.set('filter', filter)
+      }
       const response = await fetch(`/api/tasks?${params}`)
       if (response.ok) {
         const data = await response.json()
         setTasks(data.tasks)
+        
+        // Check for upcoming deadlines
+        NotificationManager.checkForUpcomingDeadlines(data.tasks)
       }
     } catch (error) {
       console.error('Error fetching tasks:', error)
@@ -78,11 +98,15 @@ export default function Dashboard() {
 
   const handleSearch = (query: string) => {
     setSearchQuery(query)
-    fetchTasks(query, selectedListId)
+    fetchTasks(query, selectedListId, selectedFilter)
   }
 
   const handleSelectList = (listId?: string) => {
     setSelectedListId(listId)
+  }
+
+  const handleSelectFilter = (filter?: string) => {
+    setSelectedFilter(filter)
   }
 
   const handleCreateTask = async (taskData: any) => {
@@ -161,7 +185,7 @@ export default function Dashboard() {
         if (selectedListId === listId) {
           setSelectedListId(undefined)
         }
-        fetchTasks(searchQuery) // Refresh tasks
+        fetchTasks(searchQuery, undefined, selectedFilter) // Refresh tasks
       }
     } catch (error) {
       console.error('Error deleting list:', error)
@@ -251,7 +275,7 @@ export default function Dashboard() {
 
       if (response.ok) {
         // Refresh tasks to get updated subtasks
-        fetchTasks(searchQuery, selectedListId)
+        fetchTasks(searchQuery, selectedListId, selectedFilter)
         fetchLists() // Update task counts
       }
     } catch (error) {
@@ -282,7 +306,7 @@ export default function Dashboard() {
       }
 
       // Refresh tasks and lists
-      fetchTasks(searchQuery, selectedListId)
+      fetchTasks(searchQuery, selectedListId, selectedFilter)
       fetchLists()
     } catch (error) {
       console.error('Error with bulk subtask action:', error)
@@ -310,7 +334,9 @@ export default function Dashboard() {
       <TaskListSidebar
         lists={lists}
         selectedListId={selectedListId}
+        selectedFilter={selectedFilter}
         onSelectList={handleSelectList}
+        onSelectFilter={handleSelectFilter}
         onCreateList={handleCreateList}
         onUpdateList={handleUpdateList}
         onDeleteList={handleDeleteList}
@@ -356,13 +382,21 @@ export default function Dashboard() {
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
-                  {selectedListId 
+                  {selectedFilter === 'today' ? 'Today\'s Tasks' :
+                   selectedFilter === 'tomorrow' ? 'Tomorrow\'s Tasks' :
+                   selectedFilter === 'week' ? 'This Week\'s Tasks' :
+                   selectedFilter === 'overdue' ? 'Overdue Tasks' :
+                   selectedListId 
                     ? lists.find(l => l.id === selectedListId)?.name || 'Tasks'
                     : 'All Tasks'
                   }
                 </h1>
                 <p className="text-gray-600">
-                  {selectedListId 
+                  {selectedFilter === 'today' ? 'Tasks due today' :
+                   selectedFilter === 'tomorrow' ? 'Tasks due tomorrow' :
+                   selectedFilter === 'week' ? 'Tasks due this week' :
+                   selectedFilter === 'overdue' ? 'Tasks that are past their due date' :
+                   selectedListId 
                     ? `Tasks in ${lists.find(l => l.id === selectedListId)?.name || 'this list'}`
                     : 'All your tasks across all lists'
                   }

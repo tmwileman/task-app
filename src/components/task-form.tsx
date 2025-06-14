@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Priority } from '@prisma/client'
+import { Priority, RecurringType } from '@prisma/client'
 
 interface TaskFormProps {
   onSubmit: (taskData: {
@@ -11,6 +11,10 @@ interface TaskFormProps {
     dueDate?: string
     listId?: string
     parentId?: string
+    isRecurring?: boolean
+    recurringType?: RecurringType
+    recurringInterval?: number
+    recurringUntil?: string
   }) => void
   onCancel?: () => void
   isSubmitting?: boolean
@@ -35,6 +39,12 @@ export function TaskForm({
   const [dueDate, setDueDate] = useState('')
   const [listId, setListId] = useState(selectedListId || '')
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
+  
+  // Recurring task state
+  const [isRecurring, setIsRecurring] = useState(false)
+  const [recurringType, setRecurringType] = useState<RecurringType>(RecurringType.WEEKLY)
+  const [recurringInterval, setRecurringInterval] = useState(1)
+  const [recurringUntil, setRecurringUntil] = useState('')
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {}
@@ -65,6 +75,10 @@ export function TaskForm({
       dueDate: dueDate || undefined,
       listId: listId || undefined,
       parentId: parentId || undefined,
+      isRecurring: isRecurring && !parentId, // Don't allow recurring subtasks
+      recurringType: isRecurring ? recurringType : undefined,
+      recurringInterval: isRecurring ? recurringInterval : undefined,
+      recurringUntil: isRecurring && recurringUntil ? recurringUntil : undefined,
     })
 
     // Reset form
@@ -73,6 +87,10 @@ export function TaskForm({
     setPriority(Priority.MEDIUM)
     setDueDate('')
     setListId(selectedListId || '')
+    setIsRecurring(false)
+    setRecurringType(RecurringType.WEEKLY)
+    setRecurringInterval(1)
+    setRecurringUntil('')
     setErrors({})
   }
 
@@ -168,6 +186,81 @@ export function TaskForm({
             <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700 mb-1">
               Due Date
             </label>
+            
+            {/* Quick Date Options */}
+            <div className="mb-2 flex flex-wrap gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const today = new Date()
+                  today.setHours(17, 0, 0, 0) // 5 PM today
+                  setDueDate(today.toISOString().slice(0, 16))
+                }}
+                className="text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
+                disabled={isSubmitting}
+              >
+                Today 5PM
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const tomorrow = new Date()
+                  tomorrow.setDate(tomorrow.getDate() + 1)
+                  tomorrow.setHours(9, 0, 0, 0) // 9 AM tomorrow
+                  setDueDate(tomorrow.toISOString().slice(0, 16))
+                }}
+                className="text-xs px-2 py-1 bg-green-50 text-green-600 rounded hover:bg-green-100 transition-colors"
+                disabled={isSubmitting}
+              >
+                Tomorrow 9AM
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const nextWeek = new Date()
+                  nextWeek.setDate(nextWeek.getDate() + 7)
+                  nextWeek.setHours(9, 0, 0, 0)
+                  setDueDate(nextWeek.toISOString().slice(0, 16))
+                }}
+                className="text-xs px-2 py-1 bg-purple-50 text-purple-600 rounded hover:bg-purple-100 transition-colors"
+                disabled={isSubmitting}
+              >
+                Next Week
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  // Smart scheduling based on priority
+                  const now = new Date()
+                  let daysToAdd = 7
+                  
+                  switch (priority) {
+                    case Priority.URGENT: daysToAdd = 1; break
+                    case Priority.HIGH: daysToAdd = 3; break
+                    case Priority.MEDIUM: daysToAdd = 7; break
+                    case Priority.LOW: daysToAdd = 14; break
+                  }
+                  
+                  const suggested = new Date(now)
+                  suggested.setDate(now.getDate() + daysToAdd)
+                  suggested.setHours(9, 0, 0, 0)
+                  setDueDate(suggested.toISOString().slice(0, 16))
+                }}
+                className="text-xs px-2 py-1 bg-indigo-50 text-indigo-600 rounded hover:bg-indigo-100 transition-colors"
+                disabled={isSubmitting}
+              >
+                Smart
+              </button>
+              <button
+                type="button"
+                onClick={() => setDueDate('')}
+                className="text-xs px-2 py-1 bg-gray-50 text-gray-600 rounded hover:bg-gray-100 transition-colors"
+                disabled={isSubmitting}
+              >
+                Clear
+              </button>
+            </div>
+            
             <input
               type="datetime-local"
               id="dueDate"
@@ -183,6 +276,87 @@ export function TaskForm({
             )}
           </div>
         </div>
+
+        {/* Recurring Task Options - Only show for main tasks, not subtasks */}
+        {!parentId && (
+          <div className="space-y-3 p-4 bg-gray-50 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="isRecurring"
+                checked={isRecurring}
+                onChange={(e) => setIsRecurring(e.target.checked)}
+                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                disabled={isSubmitting}
+              />
+              <label htmlFor="isRecurring" className="text-sm font-medium text-gray-700">
+                Make this a recurring task
+              </label>
+            </div>
+
+            {isRecurring && (
+              <div className="space-y-3 pl-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="recurringType" className="block text-sm font-medium text-gray-700 mb-1">
+                      Repeat
+                    </label>
+                    <select
+                      id="recurringType"
+                      value={recurringType}
+                      onChange={(e) => setRecurringType(e.target.value as RecurringType)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      disabled={isSubmitting}
+                    >
+                      <option value={RecurringType.DAILY}>Daily</option>
+                      <option value={RecurringType.WEEKLY}>Weekly</option>
+                      <option value={RecurringType.MONTHLY}>Monthly</option>
+                      <option value={RecurringType.YEARLY}>Yearly</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="recurringInterval" className="block text-sm font-medium text-gray-700 mb-1">
+                      Every
+                    </label>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="number"
+                        id="recurringInterval"
+                        min="1"
+                        max="30"
+                        value={recurringInterval}
+                        onChange={(e) => setRecurringInterval(parseInt(e.target.value) || 1)}
+                        className="w-20 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        disabled={isSubmitting}
+                      />
+                      <span className="text-sm text-gray-600">
+                        {recurringType === RecurringType.DAILY && (recurringInterval === 1 ? 'day' : 'days')}
+                        {recurringType === RecurringType.WEEKLY && (recurringInterval === 1 ? 'week' : 'weeks')}
+                        {recurringType === RecurringType.MONTHLY && (recurringInterval === 1 ? 'month' : 'months')}
+                        {recurringType === RecurringType.YEARLY && (recurringInterval === 1 ? 'year' : 'years')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="recurringUntil" className="block text-sm font-medium text-gray-700 mb-1">
+                    Until (optional)
+                  </label>
+                  <input
+                    type="date"
+                    id="recurringUntil"
+                    value={recurringUntil}
+                    onChange={(e) => setRecurringUntil(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    disabled={isSubmitting}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex justify-end space-x-3 pt-4">
           {onCancel && (

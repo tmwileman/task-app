@@ -6,7 +6,9 @@ import { TaskListWithRelations } from '@/types'
 interface TaskListSidebarProps {
   lists: TaskListWithRelations[]
   selectedListId?: string
+  selectedFilter?: string
   onSelectList: (listId?: string) => void
+  onSelectFilter: (filter?: string) => void
   onCreateList: (listData: any) => void
   onUpdateList: (listId: string, data: any) => void
   onDeleteList: (listId: string) => void
@@ -16,7 +18,9 @@ interface TaskListSidebarProps {
 export function TaskListSidebar({
   lists,
   selectedListId,
+  selectedFilter,
   onSelectList,
+  onSelectFilter,
   onCreateList,
   onUpdateList,
   onDeleteList,
@@ -80,11 +84,96 @@ export function TaskListSidebar({
           </button>
         </div>
 
+        {/* Time-based Filters */}
+        <div className="mb-4">
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Quick Filters</h3>
+          <div className="space-y-1">
+            <button
+              onClick={() => {
+                onSelectList(undefined)
+                onSelectFilter('today')
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${
+                selectedFilter === 'today'
+                  ? 'bg-blue-100 text-blue-900 border border-blue-200'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <div className="flex items-center">
+                <svg className="w-4 h-4 mr-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <span>Today</span>
+              </div>
+            </button>
+            
+            <button
+              onClick={() => {
+                onSelectList(undefined)
+                onSelectFilter('tomorrow')
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${
+                selectedFilter === 'tomorrow'
+                  ? 'bg-blue-100 text-blue-900 border border-blue-200'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <div className="flex items-center">
+                <svg className="w-4 h-4 mr-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span>Tomorrow</span>
+              </div>
+            </button>
+            
+            <button
+              onClick={() => {
+                onSelectList(undefined)
+                onSelectFilter('week')
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${
+                selectedFilter === 'week'
+                  ? 'bg-blue-100 text-blue-900 border border-blue-200'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <div className="flex items-center">
+                <svg className="w-4 h-4 mr-3 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span>This Week</span>
+              </div>
+            </button>
+            
+            <button
+              onClick={() => {
+                onSelectList(undefined)
+                onSelectFilter('overdue')
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${
+                selectedFilter === 'overdue'
+                  ? 'bg-red-100 text-red-900 border border-red-200'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <div className="flex items-center">
+                <svg className="w-4 h-4 mr-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Overdue</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
         {/* All Tasks Option */}
         <button
-          onClick={() => onSelectList(undefined)}
+          onClick={() => {
+            onSelectList(undefined)
+            onSelectFilter(undefined)
+          }}
           className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors mb-2 ${
-            !selectedListId
+            !selectedListId && !selectedFilter
               ? 'bg-blue-100 text-blue-900 border border-blue-200'
               : 'text-gray-700 hover:bg-gray-100'
           }`}
@@ -119,7 +208,10 @@ export function TaskListSidebar({
                 </div>
               ) : (
                 <button
-                  onClick={() => onSelectList(list.id)}
+                  onClick={() => {
+                    onSelectList(list.id)
+                    onSelectFilter(undefined)
+                  }}
                   className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${
                     selectedListId === list.id
                       ? 'bg-blue-100 text-blue-900 border border-blue-200'

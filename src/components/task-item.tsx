@@ -89,11 +89,38 @@ export function TaskItem({ task, onUpdate, onDelete, onCreateSubtask, onBulkSubt
     })
   }
 
-  const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && !task.completed
+  const getDueDateStatus = () => {
+    if (!task.dueDate || task.completed) return null
+    
+    const now = new Date()
+    const dueDate = new Date(task.dueDate)
+    const timeDiff = dueDate.getTime() - now.getTime()
+    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24))
+    const hoursDiff = Math.ceil(timeDiff / (1000 * 3600))
+    
+    if (timeDiff < 0) {
+      return { status: 'overdue', text: 'Overdue', class: 'text-red-600 bg-red-50 border-red-200' }
+    } else if (hoursDiff <= 2) {
+      return { status: 'urgent', text: 'Due soon', class: 'text-orange-600 bg-orange-50 border-orange-200' }
+    } else if (daysDiff <= 1) {
+      return { status: 'today', text: 'Due today', class: 'text-yellow-600 bg-yellow-50 border-yellow-200' }
+    } else if (daysDiff <= 7) {
+      return { status: 'week', text: `${daysDiff} days`, class: 'text-blue-600 bg-blue-50 border-blue-200' }
+    }
+    
+    return null
+  }
+
+  const dueDateStatus = getDueDateStatus()
+  const isOverdue = dueDateStatus?.status === 'overdue'
 
   return (
     <div className={`bg-white border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow ${
       task.completed ? 'opacity-75' : ''
+    } ${
+      isOverdue ? 'border-l-4 border-l-red-500 bg-red-50/30' : 
+      dueDateStatus?.status === 'urgent' ? 'border-l-4 border-l-orange-500 bg-orange-50/30' :
+      dueDateStatus?.status === 'today' ? 'border-l-4 border-l-yellow-500 bg-yellow-50/30' : ''
     }`}>
       <div className="flex items-start space-x-3">
         {/* Checkbox */}
@@ -175,13 +202,29 @@ export function TaskItem({ task, onUpdate, onDelete, onCreateSubtask, onBulkSubt
               {/* Metadata */}
               <div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
                 {task.dueDate && (
-                  <span className={isOverdue ? 'text-red-600 font-medium' : ''}>
-                    Due: {formatDate(task.dueDate)}
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <span className={isOverdue ? 'text-red-600 font-medium' : ''}>
+                      Due: {formatDate(task.dueDate)}
+                    </span>
+                    {dueDateStatus && (
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${dueDateStatus.class}`}>
+                        {dueDateStatus.text}
+                      </span>
+                    )}
+                  </div>
                 )}
                 
                 {showList && task.list && (
                   <span>List: {task.list.name}</span>
+                )}
+                
+                {task.isRecurring && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border text-purple-600 bg-purple-50 border-purple-200">
+                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Recurring
+                  </span>
                 )}
                 
                 {task.subtasks && task.subtasks.length > 0 && (

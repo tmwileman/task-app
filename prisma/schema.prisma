@@ -100,6 +100,14 @@ model Task {
   userId      String
   listId      String?
   parentId    String?
+  
+  // Recurring task fields
+  isRecurring   Boolean        @default(false)
+  recurringType RecurringType?
+  recurringInterval Int?
+  recurringDays String?        // JSON array for custom days
+  recurringUntil DateTime?
+  lastRecurrence DateTime?
 
   // Relations
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -139,4 +147,12 @@ enum Priority {
   MEDIUM
   HIGH
   URGENT
+}
+
+enum RecurringType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+  CUSTOM
 }

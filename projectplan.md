@@ -80,14 +80,14 @@ Building a modern, fast, and simple task management web application using Next.j
 
 ## Phase 3: Time Management Features (Weeks 5-6)
 
-### Checkpoint 3.1: Due Dates & Scheduling
+### Checkpoint 3.1: Due Dates & Scheduling ✅ COMPLETED
 **Tasks:**
-- [ ] Add due date picker component
-- [ ] Implement recurring task functionality
-- [ ] Create overdue task detection and highlighting
-- [ ] Add time-based task filtering (today, this week, etc.)
-- [ ] Implement task scheduling algorithms
-- [ ] Create deadline notification system
+- [x] Add due date picker component
+- [x] Implement recurring task functionality
+- [x] Create overdue task detection and highlighting
+- [x] Add time-based task filtering (today, this week, etc.)
+- [x] Implement task scheduling algorithms
+- [x] Create deadline notification system
 
 ### Checkpoint 3.2: Calendar Integration
 **Tasks:**
@@ -482,6 +482,81 @@ Building on the existing task management system to add hierarchical subtask func
 - Extended existing components rather than creating new ones
 - Simple, incremental changes following established patterns
 - Maintained existing functionality while adding hierarchical capabilities
+
+---
+
+## 🎯 Checkpoint 3.1: Due Dates & Scheduling - Implementation Plan
+
+### Overview
+Enhance the task management system with robust time management features including improved due date handling, recurring tasks, overdue detection, and time-based filtering.
+
+### Todo Items for Checkpoint 3.1
+- [x] **Task 1:** Add due date picker component with better UX
+- [x] **Task 2:** Implement recurring task functionality  
+- [x] **Task 3:** Create overdue task detection and highlighting
+- [x] **Task 4:** Add time-based task filtering (today, this week, etc.)
+- [x] **Task 5:** Implement task scheduling algorithms
+- [x] **Task 6:** Create deadline notification system
+
+### Implementation Strategy
+1. **Enhance existing due date system:** Improve the current datetime-local input with a better date picker
+2. **Add recurring task support:** Extend database schema and task creation for recurring patterns
+3. **Smart filtering:** Add preset filters for common time-based views (Today, Tomorrow, This Week, etc.)
+4. **Visual indicators:** Enhance overdue highlighting and add urgency indicators
+5. **Minimal complexity:** Build on existing patterns and components
+
+### Technical Approach
+- Enhance task form with better date/time picker components
+- Add recurring task fields to database schema and forms
+- Create time-based filter components and logic
+- Implement overdue detection with visual styling
+- Add notification scheduling foundation
+
+### Expected Files to Modify
+- `prisma/schema.prisma` - Add recurring task fields
+- `src/components/task-form.tsx` - Enhanced date picker and recurring options
+- `src/components/task-item.tsx` - Better overdue indicators and due date display
+- `src/components/task-list-sidebar.tsx` - Add time-based filter options
+- `src/app/api/tasks/route.ts` - Support time-based filtering
+- `src/lib/db-utils.ts` - Add recurring task logic and time filters
+
+### ✅ Checkpoint 3.1 Review - COMPLETED
+
+**What was implemented:**
+1. **Enhanced Due Date Picker:** Added quick date buttons (Today 5PM, Tomorrow 9AM, Next Week) and smart scheduling based on priority
+2. **Recurring Tasks:** Complete recurring task system with daily/weekly/monthly/yearly patterns, intervals, and end dates
+3. **Advanced Overdue Detection:** Multi-level urgency system (overdue, due soon, due today, this week) with visual indicators
+4. **Time-based Filtering:** Quick filters in sidebar for Today, Tomorrow, This Week, and Overdue tasks
+5. **Task Scheduling Algorithms:** Smart due date suggestions based on priority levels and optimal scheduling logic
+6. **Deadline Notifications:** Browser notification system with permission handling and periodic deadline checking
+
+**Key Features Delivered:**
+- ✅ Quick date selection buttons with smart defaults
+- ✅ Comprehensive recurring task configuration UI
+- ✅ Enhanced visual urgency indicators with colored borders and badges
+- ✅ Time-based sidebar filters with icons and proper state management
+- ✅ Smart scheduling algorithm that considers priority and avoids weekends
+- ✅ Browser notification system with deadline checking every 5 minutes
+- ✅ Database schema extended with recurring task fields
+- ✅ API support for time-based filtering with proper date range queries
+
+**Files Modified:**
+- `prisma/schema.prisma` - Added recurring task fields and enum
+- `src/components/task-form.tsx` - Enhanced date picker and recurring task UI
+- `src/components/task-item.tsx` - Advanced overdue detection and recurring indicators
+- `src/components/task-list-sidebar.tsx` - Time-based filter buttons
+- `src/app/dashboard/page.tsx` - Filter state management and notification integration
+- `src/app/api/tasks/route.ts` - Time-based filtering API support
+- `src/lib/db-utils.ts` - Time filtering logic and scheduling algorithms
+- `src/lib/notifications.ts` - Deadline notification system (new file)
+- `src/types/index.ts` - Extended types for recurring tasks
+
+**Technical Approach:**
+- Built on existing task management foundation with minimal disruption
+- Enhanced user experience with intuitive quick actions and smart defaults
+- Implemented robust time-based filtering with proper database queries
+- Created flexible recurring task system supporting multiple patterns
+- Added browser notification API integration with proper permission handling
 
 ---
 

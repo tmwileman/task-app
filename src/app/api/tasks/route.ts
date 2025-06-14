@@ -18,12 +18,14 @@ export async function GET(request: Request) {
                      searchParams.get('completed') === 'false' ? false : undefined
     const priority = searchParams.get('priority') as Priority || undefined
     const search = searchParams.get('search') || undefined
+    const filter = searchParams.get('filter') || undefined
 
     const tasks = await getTasksByUser(session.user.id, {
       listId,
       completed,
       priority,
       search,
+      filter,
     })
 
     return NextResponse.json({ tasks })
