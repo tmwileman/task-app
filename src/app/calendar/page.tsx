@@ -2,12 +2,15 @@
 
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
-import { TaskCalendar } from '@/components/task-calendar'
+import { useEffect, useState, Suspense, lazy } from 'react'
 import { TaskForm } from '@/components/task-form'
 import { TaskWithRelations, TaskListWithRelations } from '@/types'
 import { createTaskForDate } from '@/lib/calendar-utils'
 import { downloadICalFile } from '@/lib/ical-export'
+import { CalendarSkeleton } from '@/components/skeleton/calendar-skeleton'
+
+// Lazy load the calendar component for better performance
+const TaskCalendar = lazy(() => import('@/components/task-calendar').then(module => ({ default: module.TaskCalendar })))
 
 export default function CalendarPage() {
   const { data: session, status } = useSession()
@@ -235,13 +238,15 @@ export default function CalendarPage() {
         )}
 
         {/* Calendar */}
-        <TaskCalendar
-          tasks={tasks}
-          onTaskUpdate={handleTaskUpdate}
-          onTaskSelect={handleTaskSelect}
-          onDateSelect={handleDateSelect}
-          loading={loading}
-        />
+        <Suspense fallback={<CalendarSkeleton />}>
+          <TaskCalendar
+            tasks={tasks}
+            onTaskUpdate={handleTaskUpdate}
+            onTaskSelect={handleTaskSelect}
+            onDateSelect={handleDateSelect}
+            loading={loading}
+          />
+        </Suspense>
       </main>
     </div>
   )

@@ -76,6 +76,8 @@ export async function getTasksByUser(userId: string, filters?: {
   priority?: Priority
   search?: string
   filter?: string
+  cursor?: string
+  limit?: number
 }) {
   const where: Prisma.TaskWhereInput = {
     userId,
@@ -145,7 +147,52 @@ export async function getTasksByUser(userId: string, filters?: {
     }
   }
 
-  return await db.task.findMany({
+  // Handle pagination for infinite scrolling
+  if (filters?.cursor || filters?.limit) {
+    const limit = filters.limit || 20
+    const cursor = filters.cursor ? { id: filters.cursor } : undefined
+
+    // Get total count for pagination info
+    const totalCount = await db.task.count({ where })
+
+    // Get tasks with cursor-based pagination
+    const tasks = await db.task.findMany({
+      where,
+      include: {
+        list: true,
+        subtasks: {
+          orderBy: { order: 'asc' },
+        },
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
+      },
+      orderBy: [
+        { completed: 'asc' },
+        { order: 'asc' },
+        { createdAt: 'desc' },
+      ],
+      take: limit + 1, // Take one extra to determine if there's a next page
+      cursor,
+      skip: cursor ? 1 : 0, // Skip the cursor item itself
+    })
+
+    const hasNextPage = tasks.length > limit
+    const tasksToReturn = hasNextPage ? tasks.slice(0, -1) : tasks
+    const nextCursor = hasNextPage ? tasks[tasks.length - 2]?.id : undefined
+
+    return {
+      tasks: tasksToReturn,
+      nextCursor,
+      hasNextPage,
+      totalCount,
+    }
+  }
+
+  // Return all tasks for non-paginated requests (backward compatibility)
+  const tasks = await db.task.findMany({
     where,
     include: {
       list: true,
@@ -164,6 +211,8 @@ export async function getTasksByUser(userId: string, filters?: {
       { createdAt: 'desc' },
     ],
   })
+
+  return tasks
 }
 
 // TaskList utility functions

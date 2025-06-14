@@ -85,6 +85,9 @@ model TaskList {
   user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   tasks Task[]
 
+  // Performance indexes
+  @@index([userId, order]) // User lists with ordering
+  @@index([userId, isDefault]) // Default lists lookup
   @@map("task_lists")
 }
 
@@ -121,6 +124,14 @@ model Task {
   notifications Notification[]
   scheduledReminders ScheduledReminder[]
 
+  // Performance indexes
+  @@index([userId, completed, createdAt(sort: Desc)]) // Main task queries
+  @@index([userId, listId, completed]) // List filtering
+  @@index([userId, dueDate]) // Due date filtering
+  @@index([userId, parentId]) // Subtask queries
+  @@index([dueDate, completed]) // Overdue detection
+  @@index([priority, dueDate]) // Priority + due date sorting
+  @@index([createdAt]) // Pagination cursor
   @@map("tasks")
 }
 
@@ -178,6 +189,9 @@ model Notification {
   user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   task Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
+  // Performance indexes
+  @@index([userId, read, createdAt(sort: Desc)]) // Unread notifications
+  @@index([userId, type, createdAt(sort: Desc)]) // Notifications by type
   @@map("notifications")
 }
 
@@ -227,5 +241,8 @@ model ScheduledReminder {
   // Relations
   task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
+  // Performance indexes
+  @@index([status, reminderDate]) // Pending reminders lookup
+  @@index([taskId, status]) // Task reminders
   @@map("scheduled_reminders")
 }

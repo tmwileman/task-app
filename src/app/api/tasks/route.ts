@@ -19,16 +19,31 @@ export async function GET(request: Request) {
     const priority = searchParams.get('priority') as Priority || undefined
     const search = searchParams.get('search') || undefined
     const filter = searchParams.get('filter') || undefined
+    const cursor = searchParams.get('cursor') || undefined
+    const limit = parseInt(searchParams.get('limit') || '50', 10)
 
-    const tasks = await getTasksByUser(session.user.id, {
+    const result = await getTasksByUser(session.user.id, {
       listId,
       completed,
       priority,
       search,
       filter,
+      cursor,
+      limit,
     })
 
-    return NextResponse.json({ tasks })
+    // Return paginated response for infinite scrolling
+    if (cursor !== undefined || limit < 50) {
+      return NextResponse.json({
+        tasks: result.tasks,
+        nextCursor: result.nextCursor,
+        hasNextPage: result.hasNextPage,
+        totalCount: result.totalCount,
+      })
+    }
+
+    // Return simple response for backward compatibility
+    return NextResponse.json({ tasks: result.tasks || result })
   } catch (error) {
     console.error('Error fetching tasks:', error)
     return NextResponse.json(

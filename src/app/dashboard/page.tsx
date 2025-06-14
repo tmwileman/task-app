@@ -9,15 +9,18 @@ import { TaskListSidebar } from '@/components/task-list-sidebar'
 import { TaskWithRelations, TaskListWithRelations } from '@/types'
 import NotificationManager from '@/lib/notifications'
 import ReminderScheduler from '@/lib/reminder-scheduler'
-import { NotificationPreferencesModal } from '@/components/notification-preferences'
-import { NotificationHistoryModal } from '@/components/notification-history'
 import KeyboardShortcutManager, { createDefaultShortcuts } from '@/lib/keyboard-shortcuts'
 import UndoRedoManager, { createTaskActions } from '@/lib/undo-redo-manager'
-import { KeyboardShortcutsHelp } from '@/components/keyboard-shortcuts-help'
-import { QuickAddModal } from '@/components/quick-add-modal'
-import { TaskTemplatesModal, useTaskTemplates } from '@/components/task-templates'
 import { UndoRedoControls } from '@/components/undo-redo-controls'
 import { ThemeToggle } from '@/lib/theme-provider'
+import { useTaskTemplates } from '@/components/task-templates'
+import {
+  NotificationPreferencesWithSuspense,
+  NotificationHistoryWithSuspense,
+  KeyboardShortcutsHelpWithSuspense,
+  QuickAddModalWithSuspense,
+  TaskTemplatesModalWithSuspense,
+} from '@/components/lazy-components'
 
 export default function Dashboard() {
   const { data: session, status } = useSession()
@@ -698,7 +701,7 @@ export default function Dashboard() {
 
       {/* UX Enhancement Modals */}
       {showQuickAdd && (
-        <QuickAddModal
+        <QuickAddModalWithSuspense
           isOpen={showQuickAdd}
           onClose={() => setShowQuickAdd(false)}
           onSubmit={handleCreateTask}
@@ -707,27 +710,27 @@ export default function Dashboard() {
       )}
 
       {showTemplates && (
-        <TaskTemplatesModal
+        <TaskTemplatesModalWithSuspense
           onSelectTemplate={handleTemplateSelect}
           onClose={closeTemplates}
         />
       )}
 
       {showKeyboardHelp && (
-        <KeyboardShortcutsHelp
+        <KeyboardShortcutsHelpWithSuspense
           onClose={() => setShowKeyboardHelp(false)}
         />
       )}
 
       {/* Notification Modals */}
       {showNotificationPreferences && (
-        <NotificationPreferencesModal
+        <NotificationPreferencesWithSuspense
           onClose={() => setShowNotificationPreferences(false)}
         />
       )}
 
       {showNotificationHistory && (
-        <NotificationHistoryModal
+        <NotificationHistoryWithSuspense
           onClose={() => setShowNotificationHistory(false)}
         />
       )}

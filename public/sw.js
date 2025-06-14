@@ -1,19 +1,33 @@
-// Service Worker for Task App - Web Push Notifications
-const CACHE_NAME = 'task-app-v1'
-const urlsToCache = [
+// Service Worker for Task App - Enhanced Offline Support
+const CACHE_NAME = 'task-app-v2'
+const STATIC_CACHE = 'task-app-static-v2'
+const API_CACHE = 'task-app-api-v2'
+const IMAGE_CACHE = 'task-app-images-v2'
+
+// Static resources to cache
+const staticAssets = [
   '/',
   '/dashboard',
   '/calendar',
-  '/offline'
+  '/offline',
+  '/manifest.json'
+]
+
+// API endpoints to cache
+const apiEndpoints = [
+  '/api/tasks',
+  '/api/lists',
+  '/api/notifications/preferences'
 ]
 
 // Install event - cache resources
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        return cache.addAll(urlsToCache)
-      })
+    Promise.all([
+      caches.open(STATIC_CACHE).then(cache => cache.addAll(staticAssets)),
+      // Initialize offline database
+      initializeOfflineDB()
+    ])
   )
   // Skip waiting to activate immediately
   self.skipWaiting()
@@ -21,11 +35,14 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
+  const cacheWhitelist = [STATIC_CACHE, API_CACHE, IMAGE_CACHE]
+  
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
+          if (!cacheWhitelist.includes(cacheName)) {
+            console.log('Deleting old cache:', cacheName)
             return caches.delete(cacheName)
           }
         })
@@ -36,17 +53,35 @@ self.addEventListener('activate', (event) => {
   self.clients.claim()
 })
 
-// Fetch event - serve from cache when offline
+// Fetch event - enhanced caching strategy
 self.addEventListener('fetch', (event) => {
+  const { request } = event
+  const url = new URL(request.url)
+
+  // Handle API requests
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(handleApiRequest(request))
+    return
+  }
+
+  // Handle static assets
+  if (request.destination === 'document') {
+    event.respondWith(handleDocumentRequest(request))
+    return
+  }
+
+  // Handle images
+  if (request.destination === 'image') {
+    event.respondWith(handleImageRequest(request))
+    return
+  }
+
+  // Default strategy - cache first
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Return cached version or fetch from network
-        return response || fetch(event.request)
-      })
+    caches.match(request)
+      .then(response => response || fetch(request))
       .catch(() => {
-        // If both cache and network fail, show offline page
-        if (event.request.destination === 'document') {
+        if (request.destination === 'document') {
           return caches.match('/offline')
         }
       })
@@ -233,6 +268,200 @@ async function syncTasks() {
   } catch (error) {
     console.error('Error during background sync:', error)
   }
+}
+
+// Enhanced caching strategies
+async function handleApiRequest(request) {
+  const url = new URL(request.url)
+  
+  // For GET requests, try cache first, then network
+  if (request.method === 'GET') {
+    try {
+      const cachedResponse = await caches.match(request)
+      
+      // Return cached version immediately if available
+      if (cachedResponse) {
+        // Update cache in background
+        fetch(request)
+          .then(response => {
+            if (response.ok) {
+              const responseClone = response.clone()
+              caches.open(API_CACHE).then(cache => {
+                cache.put(request, responseClone)
+              })
+            }
+          })
+          .catch(() => {})
+        
+        return cachedResponse
+      }
+
+      // If not cached, fetch from network
+      const networkResponse = await fetch(request)
+      
+      if (networkResponse.ok) {
+        const responseClone = networkResponse.clone()
+        const cache = await caches.open(API_CACHE)
+        cache.put(request, responseClone)
+      }
+      
+      return networkResponse
+    } catch (error) {
+      // If network fails, try to return cached version
+      const cachedResponse = await caches.match(request)
+      if (cachedResponse) {
+        return cachedResponse
+      }
+      throw error
+    }
+  }
+
+  // For POST/PUT/DELETE requests, try network first
+  if (['POST', 'PUT', 'DELETE'].includes(request.method)) {
+    try {
+      const response = await fetch(request)
+      
+      // Invalidate related caches on successful mutations
+      if (response.ok) {
+        await invalidateApiCache(url.pathname)
+      }
+      
+      return response
+    } catch (error) {
+      // Store for background sync if offline
+      if (url.pathname.startsWith('/api/tasks')) {
+        await storeOfflineRequest(request)
+        
+        // Return a synthetic response
+        return new Response(
+          JSON.stringify({ message: 'Saved for background sync' }),
+          {
+            status: 202,
+            statusText: 'Accepted - Will sync when online',
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
+      }
+      throw error
+    }
+  }
+
+  // Default to network for other methods
+  return fetch(request)
+}
+
+async function handleDocumentRequest(request) {
+  try {
+    const networkResponse = await fetch(request)
+    
+    if (networkResponse.ok) {
+      const responseClone = networkResponse.clone()
+      const cache = await caches.open(STATIC_CACHE)
+      cache.put(request, responseClone)
+    }
+    
+    return networkResponse
+  } catch (error) {
+    const cachedResponse = await caches.match(request)
+    return cachedResponse || caches.match('/offline')
+  }
+}
+
+async function handleImageRequest(request) {
+  try {
+    const cachedResponse = await caches.match(request)
+    if (cachedResponse) {
+      return cachedResponse
+    }
+
+    const networkResponse = await fetch(request)
+    
+    if (networkResponse.ok) {
+      const responseClone = networkResponse.clone()
+      const cache = await caches.open(IMAGE_CACHE)
+      cache.put(request, responseClone)
+    }
+    
+    return networkResponse
+  } catch (error) {
+    const cachedResponse = await caches.match(request)
+    if (cachedResponse) {
+      return cachedResponse
+    }
+    throw error
+  }
+}
+
+async function invalidateApiCache(pathname) {
+  const cache = await caches.open(API_CACHE)
+  const keys = await cache.keys()
+  
+  const relatedKeys = keys.filter(request => {
+    const url = new URL(request.url)
+    return url.pathname.startsWith('/api/tasks') || url.pathname.startsWith('/api/lists')
+  })
+  
+  await Promise.all(relatedKeys.map(key => cache.delete(key)))
+}
+
+async function storeOfflineRequest(request) {
+  try {
+    const db = await openOfflineDB()
+    const transaction = db.transaction(['pendingRequests'], 'readwrite')
+    const store = transaction.objectStore('pendingRequests')
+    
+    const requestData = {
+      id: Date.now() + Math.random(),
+      url: request.url,
+      method: request.method,
+      headers: Object.fromEntries(request.headers.entries()),
+      body: request.method !== 'GET' ? await request.text() : null,
+      timestamp: Date.now()
+    }
+    
+    await store.add(requestData)
+  } catch (error) {
+    console.error('Error storing offline request:', error)
+  }
+}
+
+// Initialize offline database
+async function initializeOfflineDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('TaskAppOffline', 2)
+    
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result
+      
+      // Create pending tasks store (legacy)
+      if (!db.objectStoreNames.contains('pendingTasks')) {
+        db.createObjectStore('pendingTasks', { keyPath: 'id' })
+      }
+      
+      // Create pending requests store (new)
+      if (!db.objectStoreNames.contains('pendingRequests')) {
+        const store = db.createObjectStore('pendingRequests', { keyPath: 'id' })
+        store.createIndex('timestamp', 'timestamp', { unique: false })
+      }
+      
+      // Create offline data store
+      if (!db.objectStoreNames.contains('offlineData')) {
+        const store = db.createObjectStore('offlineData', { keyPath: 'key' })
+        store.createIndex('type', 'type', { unique: false })
+      }
+    }
+    
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
+}
+
+async function openOfflineDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('TaskAppOffline', 2)
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
 }
 
 // IndexedDB helpers for offline task storage

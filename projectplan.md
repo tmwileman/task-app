@@ -794,6 +794,47 @@ The UX enhancements significantly improve productivity and accessibility while m
 
 ---
 
+## 🎯 Checkpoint 4.2: Performance & Optimization - Implementation Plan
+
+### Overview
+Optimize application performance with infinite scrolling, client-side caching, database optimization, offline functionality, and loading improvements. Focus on handling large datasets efficiently while maintaining smooth user experience.
+
+### Todo Items for Checkpoint 4.2
+- [ ] **Task 1:** Implement infinite scrolling for large task lists
+- [ ] **Task 2:** Add client-side caching with React Query/TanStack Query
+- [ ] **Task 3:** Optimize database queries and add indexing
+- [ ] **Task 4:** Enhance service worker for offline functionality
+- [ ] **Task 5:** Add loading states and skeleton screens
+- [ ] **Task 6:** Optimize bundle size and implement lazy loading
+
+### Implementation Strategy
+1. **Infinite Scrolling:** Replace pagination with infinite scrolling for better UX with large task lists
+2. **Client-Side Caching:** Implement React Query for efficient data caching and synchronization
+3. **Database Optimization:** Add proper indexing and optimize Prisma queries for performance
+4. **Offline Enhancement:** Extend existing service worker with offline task management capabilities
+5. **Loading States:** Add skeleton screens and loading indicators for better perceived performance
+6. **Bundle Optimization:** Implement code splitting and lazy loading for faster initial load times
+
+### Technical Approach
+- Implement virtual scrolling or infinite scroll for task lists
+- Add React Query for caching, background updates, and optimistic updates
+- Analyze and optimize database queries with proper indexing
+- Enhance service worker with offline storage and sync capabilities
+- Create skeleton components and loading states for all major UI sections
+- Implement code splitting at route level and lazy load components
+
+### Expected Files to Create/Modify
+- `src/hooks/use-infinite-tasks.ts` - Infinite scrolling hook (new)
+- `src/lib/react-query.ts` - React Query configuration (new)
+- `src/components/skeleton/` - Skeleton loading components (new)
+- `src/components/virtual-task-list.tsx` - Virtualized task list (new)
+- Update service worker for enhanced offline capabilities
+- Add database indexes to Prisma schema
+- Implement lazy loading for calendar and other heavy components
+- Optimize API endpoints for pagination and caching
+
+---
+
 ### 📝 Notes
 - Following CLAUDE.md workflow: simple, incremental changes
 - All changes are well-documented and type-safe
