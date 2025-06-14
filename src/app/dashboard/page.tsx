@@ -11,6 +11,13 @@ import NotificationManager from '@/lib/notifications'
 import ReminderScheduler from '@/lib/reminder-scheduler'
 import { NotificationPreferencesModal } from '@/components/notification-preferences'
 import { NotificationHistoryModal } from '@/components/notification-history'
+import KeyboardShortcutManager, { createDefaultShortcuts } from '@/lib/keyboard-shortcuts'
+import UndoRedoManager, { createTaskActions } from '@/lib/undo-redo-manager'
+import { KeyboardShortcutsHelp } from '@/components/keyboard-shortcuts-help'
+import { QuickAddModal } from '@/components/quick-add-modal'
+import { TaskTemplatesModal, useTaskTemplates } from '@/components/task-templates'
+import { UndoRedoControls } from '@/components/undo-redo-controls'
+import { ThemeToggle } from '@/lib/theme-provider'
 
 export default function Dashboard() {
   const { data: session, status } = useSession()
@@ -26,6 +33,10 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showNotificationPreferences, setShowNotificationPreferences] = useState(false)
   const [showNotificationHistory, setShowNotificationHistory] = useState(false)
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false)
+  const [showQuickAdd, setShowQuickAdd] = useState(false)
+  const { showTemplates, openTemplates, closeTemplates } = useTaskTemplates()
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -53,6 +64,71 @@ export default function Dashboard() {
       
       initializeNotifications()
       
+      // Set up keyboard shortcuts
+      const shortcuts = createDefaultShortcuts({
+        openQuickAdd: () => setShowQuickAdd(true),
+        openSearch: () => {
+          const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement
+          if (searchInput) searchInput.focus()
+        },
+        showHelp: () => setShowKeyboardHelp(true),
+        toggleTheme: () => {}, // Will be handled by ThemeToggle component
+        createTask: () => setShowForm(true),
+        toggleTaskForm: () => setShowForm(prev => !prev),
+        focusSearch: () => {
+          const searchInput = document.querySelector('input[type="text"]') as HTMLInputElement
+          if (searchInput) searchInput.focus()
+        },
+        markComplete: (taskId) => {
+          if (taskId || selectedTaskId) {
+            handleUpdateTask(taskId || selectedTaskId!, { completed: true })
+          }
+        },
+        deleteTask: (taskId) => {
+          if (taskId || selectedTaskId) {
+            handleDeleteTask(taskId || selectedTaskId!)
+          }
+        },
+        editTask: (taskId) => {
+          if (taskId || selectedTaskId) {
+            setShowForm(true)
+            // Could implement task editing here
+          }
+        },
+        goToDashboard: () => router.push('/dashboard'),
+        goToCalendar: () => router.push('/calendar'),
+        undo: async () => {
+          try {
+            await UndoRedoManager.undo()
+          } catch (error) {
+            console.error('Undo failed:', error)
+          }
+        },
+        redo: async () => {
+          try {
+            await UndoRedoManager.redo()
+          } catch (error) {
+            console.error('Redo failed:', error)
+          }
+        },
+        save: () => {
+          // Handle form save if form is open
+          if (showForm) {
+            const form = document.querySelector('form')
+            if (form) form.requestSubmit()
+          }
+        },
+        cancel: () => {
+          if (showForm) setShowForm(false)
+          if (showQuickAdd) setShowQuickAdd(false)
+          if (showKeyboardHelp) setShowKeyboardHelp(false)
+          if (showTemplates) closeTemplates()
+        }
+      })
+
+      shortcuts.forEach(shortcut => KeyboardShortcutManager.register(shortcut))
+      KeyboardShortcutManager.setContext('dashboard')
+      
       // Set up periodic deadline checking (every 5 minutes)
       const deadlineCheckInterval = setInterval(() => {
         if (tasks.length > 0) {
@@ -60,7 +136,10 @@ export default function Dashboard() {
         }
       }, 5 * 60 * 1000)
       
-      return () => clearInterval(deadlineCheckInterval)
+      return () => {
+        clearInterval(deadlineCheckInterval)
+        shortcuts.forEach(shortcut => KeyboardShortcutManager.unregister(shortcut.id))
+      }
     }
   }, [session])
 
@@ -150,11 +229,56 @@ export default function Dashboard() {
         if (data.task.dueDate) {
           await ReminderScheduler.scheduleTaskReminders(data.task)
         }
+
+        // Add to undo history
+        const undoAction = createTaskActions.create(
+          data.task,
+          async (taskId) => {
+            await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' })
+            setTasks(prev => prev.filter(t => t.id !== taskId))
+            fetchLists()
+          },
+          async (taskData) => {
+            const response = await fetch('/api/tasks', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(taskData)
+            })
+            const result = await response.json()
+            setTasks(prev => [result.task, ...prev])
+            fetchLists()
+            return result.task
+          }
+        )
+        UndoRedoManager.addAction(undoAction)
       }
     } catch (error) {
       console.error('Error creating task:', error)
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleTemplateSelect = async (template: any) => {
+    try {
+      const taskData = {
+        title: template.title,
+        description: template.description,
+        priority: template.priority,
+        listId: selectedListId,
+        // Add subtasks if template has them
+        subtasks: template.subtasks
+      }
+
+      await handleCreateTask(taskData)
+
+      // If template has subtasks, create them after the main task
+      if (template.subtasks && template.subtasks.length > 0) {
+        // This would need to be implemented after the main task is created
+        // For now, we'll add them to the description
+      }
+    } catch (error) {
+      console.error('Error creating task from template:', error)
     }
   }
 
@@ -398,11 +522,53 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="flex items-center space-x-4">
+                {/* UX Controls */}
+                <div className="flex items-center space-x-1">
+                  {/* Undo/Redo Controls */}
+                  <UndoRedoControls size="sm" />
+                  
+                  {/* Quick Add */}
+                  <button
+                    onClick={() => setShowQuickAdd(true)}
+                    className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+                    title="Quick Add Task (Ctrl+K)"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </button>
+
+                  {/* Templates */}
+                  <button
+                    onClick={openTemplates}
+                    className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+                    title="Task Templates"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </button>
+
+                  {/* Theme Toggle */}
+                  <ThemeToggle size="sm" />
+
+                  {/* Keyboard Help */}
+                  <button
+                    onClick={() => setShowKeyboardHelp(true)}
+                    className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+                    title="Keyboard Shortcuts (?)"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
+                </div>
+
                 {/* Notification Controls */}
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 border-l border-gray-200 dark:border-gray-700 pl-4">
                   <button
                     onClick={() => setShowNotificationHistory(true)}
-                    className="p-2 text-gray-600 hover:text-gray-900 rounded-md transition-colors"
+                    className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
                     title="Notification History"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -411,7 +577,7 @@ export default function Dashboard() {
                   </button>
                   <button
                     onClick={() => setShowNotificationPreferences(true)}
-                    className="p-2 text-gray-600 hover:text-gray-900 rounded-md transition-colors"
+                    className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
                     title="Notification Settings"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -529,6 +695,29 @@ export default function Dashboard() {
           </div>
         </main>
       </div>
+
+      {/* UX Enhancement Modals */}
+      {showQuickAdd && (
+        <QuickAddModal
+          isOpen={showQuickAdd}
+          onClose={() => setShowQuickAdd(false)}
+          onSubmit={handleCreateTask}
+          lists={lists}
+        />
+      )}
+
+      {showTemplates && (
+        <TaskTemplatesModal
+          onSelectTemplate={handleTemplateSelect}
+          onClose={closeTemplates}
+        />
+      )}
+
+      {showKeyboardHelp && (
+        <KeyboardShortcutsHelp
+          onClose={() => setShowKeyboardHelp(false)}
+        />
+      )}
 
       {/* Notification Modals */}
       {showNotificationPreferences && (
