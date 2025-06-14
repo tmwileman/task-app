@@ -627,6 +627,45 @@ Add comprehensive calendar functionality to visualize and manage tasks in a cale
 - Standards-compliant iCal export with proper VEVENT formatting
 - Navigation links between dashboard and calendar views
 
+## 🎯 Checkpoint 3.3: Reminders & Notifications - Implementation Plan
+
+### Overview
+Enhance the existing notification system with comprehensive reminder scheduling, Web Push API integration, and user notification preferences. Build on the existing browser notification foundation to create a robust reminder system.
+
+### Todo Items for Checkpoint 3.3
+- [ ] **Task 1:** Set up Web Push API service worker
+- [ ] **Task 2:** Create reminder scheduling system for tasks  
+- [ ] **Task 3:** Enhance browser notifications with reminder types
+- [ ] **Task 4:** Add notification preferences management
+- [ ] **Task 5:** Build notification history and tracking
+- [ ] **Task 6:** Implement email reminder functionality
+
+### Implementation Strategy
+1. **Web Push API:** Set up service worker and push notification infrastructure
+2. **Reminder Scheduling:** Create system for scheduling reminders at specific times before due dates
+3. **Enhanced Notifications:** Extend existing notification system with reminder categories and persistent notifications
+4. **User Preferences:** Allow users to configure notification settings and reminder timings
+5. **Notification History:** Track and display notification history for user awareness
+6. **Email Integration:** Add email reminder option for important tasks (optional/future)
+
+### Technical Approach
+- Set up service worker for Web Push API and background notifications
+- Extend existing notification system with reminder scheduling logic
+- Create notification preferences UI and database storage
+- Implement notification history tracking and display
+- Add reminder configuration to task creation/editing
+- Build notification permission management and fallback handling
+
+### Expected Files to Create/Modify
+- `public/sw.js` - Service worker for Web Push API
+- `src/lib/notifications.ts` - Enhance existing notification system
+- `src/lib/reminder-scheduler.ts` - Reminder scheduling logic (new)
+- `src/components/notification-preferences.tsx` - Settings UI (new)
+- `src/components/notification-history.tsx` - History display (new)
+- `src/app/api/notifications/route.ts` - Notification API endpoints (new)
+- Update task form to include reminder settings
+- Extend database schema for notification preferences and history
+
 ---
 
 ### 📝 Notes

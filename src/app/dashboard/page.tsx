@@ -8,6 +8,9 @@ import { TaskList } from '@/components/task-list'
 import { TaskListSidebar } from '@/components/task-list-sidebar'
 import { TaskWithRelations, TaskListWithRelations } from '@/types'
 import NotificationManager from '@/lib/notifications'
+import ReminderScheduler from '@/lib/reminder-scheduler'
+import { NotificationPreferencesModal } from '@/components/notification-preferences'
+import { NotificationHistoryModal } from '@/components/notification-history'
 
 export default function Dashboard() {
   const { data: session, status } = useSession()
@@ -21,6 +24,8 @@ export default function Dashboard() {
   const [showForm, setShowForm] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [showNotificationPreferences, setShowNotificationPreferences] = useState(false)
+  const [showNotificationHistory, setShowNotificationHistory] = useState(false)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -33,8 +38,20 @@ export default function Dashboard() {
       fetchTasks()
       fetchLists()
       
-      // Initialize notifications
-      NotificationManager.requestPermission()
+      // Initialize enhanced notifications system
+      const initializeNotifications = async () => {
+        await NotificationManager.initialize()
+        await NotificationManager.requestPermission()
+        
+        // Load pending reminders
+        await ReminderScheduler.loadPendingReminders()
+        
+        // Schedule daily digest and weekly review
+        await ReminderScheduler.scheduleDailyDigest()
+        await ReminderScheduler.scheduleWeeklyReview()
+      }
+      
+      initializeNotifications()
       
       // Set up periodic deadline checking (every 5 minutes)
       const deadlineCheckInterval = setInterval(() => {
@@ -128,6 +145,11 @@ export default function Dashboard() {
         setTasks(prev => [data.task, ...prev])
         setShowForm(false)
         fetchLists() // Refresh list counts
+        
+        // Schedule reminders for the new task
+        if (data.task.dueDate) {
+          await ReminderScheduler.scheduleTaskReminders(data.task)
+        }
       }
     } catch (error) {
       console.error('Error creating task:', error)
@@ -235,6 +257,16 @@ export default function Dashboard() {
           return task
         }))
         fetchLists() // Update task counts
+        
+        // Reschedule reminders if due date changed
+        if (updateData.dueDate !== undefined) {
+          await ReminderScheduler.rescheduleTaskReminders(data.task)
+        }
+        
+        // Cancel reminders if task is completed
+        if (updateData.completed === true) {
+          ReminderScheduler.cancelTaskReminders(taskId)
+        }
       }
     } catch (error) {
       console.error('Error updating task:', error)
@@ -366,6 +398,28 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="flex items-center space-x-4">
+                {/* Notification Controls */}
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setShowNotificationHistory(true)}
+                    className="p-2 text-gray-600 hover:text-gray-900 rounded-md transition-colors"
+                    title="Notification History"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM19 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V5a2 2 0 00-2-2z" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => setShowNotificationPreferences(true)}
+                    className="p-2 text-gray-600 hover:text-gray-900 rounded-md transition-colors"
+                    title="Notification Settings"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </button>
+                </div>
                 <div className="flex items-center space-x-2">
                   {session.user?.image && (
                     <img
@@ -475,6 +529,19 @@ export default function Dashboard() {
           </div>
         </main>
       </div>
+
+      {/* Notification Modals */}
+      {showNotificationPreferences && (
+        <NotificationPreferencesModal
+          onClose={() => setShowNotificationPreferences(false)}
+        />
+      )}
+
+      {showNotificationHistory && (
+        <NotificationHistoryModal
+          onClose={() => setShowNotificationHistory(false)}
+        />
+      )}
     </div>
   )
 }
