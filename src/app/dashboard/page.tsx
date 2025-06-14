@@ -348,8 +348,22 @@ export default function Dashboard() {
         <nav className="bg-white shadow">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16">
-              <div className="flex items-center">
+              <div className="flex items-center space-x-8">
                 <h1 className="text-xl font-semibold text-gray-900">Task App</h1>
+                <div className="flex space-x-4">
+                  <a
+                    href="/dashboard"
+                    className="bg-blue-100 text-blue-900 px-3 py-2 rounded-md text-sm font-medium"
+                  >
+                    Dashboard
+                  </a>
+                  <a
+                    href="/calendar"
+                    className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                  >
+                    Calendar
+                  </a>
+                </div>
               </div>
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">

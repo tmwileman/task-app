@@ -414,8 +414,9 @@ Building a modern, fast, and simple task management web application using Next.j
 ### 🔄 Current Status
 - **Phase 1 Progress:** 3/3 checkpoints completed (100%)
 - **Phase 2 Progress:** 3/3 checkpoints completed (100%)
-- **Next Checkpoint:** 3.1 Due Dates & Scheduling
-- **Overall Progress:** Core task management with hierarchical subtasks complete, ready for time management features
+- **Phase 3 Progress:** 2/3 checkpoints completed (67%)
+- **Next Checkpoint:** 3.3 Reminders & Notifications
+- **Overall Progress:** Core task management with time management and calendar features complete, ready for enhanced notifications
 
 ---
 
@@ -557,6 +558,74 @@ Enhance the task management system with robust time management features includin
 - Implemented robust time-based filtering with proper database queries
 - Created flexible recurring task system supporting multiple patterns
 - Added browser notification API integration with proper permission handling
+
+---
+
+## 🎯 Checkpoint 3.2: Calendar Integration - Implementation Plan
+
+### Overview
+Add comprehensive calendar functionality to visualize and manage tasks in a calendar interface. Integrate React Big Calendar with drag-and-drop scheduling and multiple view modes.
+
+### Todo Items for Checkpoint 3.2 ✅ COMPLETED
+- [x] **Task 1:** Install and configure React Big Calendar
+- [x] **Task 2:** Create calendar view component with month/week/day views
+- [x] **Task 3:** Display tasks on calendar based on due dates
+- [x] **Task 4:** Add drag-and-drop task scheduling on calendar
+- [x] **Task 5:** Implement calendar task creation (click to create)
+- [x] **Task 6:** Add calendar export functionality (iCal)
+
+### Implementation Strategy
+1. **Calendar Library Integration:** Use React Big Calendar for robust calendar functionality
+2. **Task Visualization:** Map tasks to calendar events based on due dates and priorities
+3. **Interactive Scheduling:** Enable drag-and-drop rescheduling of tasks
+4. **Multiple Views:** Support month, week, and day calendar views
+5. **Quick Task Creation:** Click-to-create tasks directly on calendar dates
+6. **Export Capability:** Generate iCal files for external calendar integration
+
+### Technical Approach
+- Install React Big Calendar and required dependencies (moment.js or date-fns)
+- Create calendar page/component with navigation and view switching
+- Transform task data into calendar event format with proper styling
+- Implement drag-and-drop handlers for task rescheduling
+- Add calendar event creation modal for quick task creation
+- Build iCal export functionality using standard calendar formats
+
+### ✅ Checkpoint 3.2 Review - COMPLETED
+
+**What was implemented:**
+1. **React Big Calendar Integration:** Installed and configured React Big Calendar with date-fns localizer for comprehensive calendar functionality
+2. **Task Calendar Component:** Created full-featured calendar with month/week/day view switching and task event display
+3. **Visual Task Mapping:** Tasks display as calendar events with priority-based color coding and status indicators (completed=green, overdue=red, priority colors)
+4. **Drag-and-Drop Scheduling:** Implemented drag-and-drop task rescheduling with automatic due date updates
+5. **Click-to-Create Tasks:** Added calendar date selection to create tasks with pre-filled due dates via modal form
+6. **iCal Export System:** Complete calendar export functionality with proper iCal format generation and download capability
+
+**Key Features Delivered:**
+- ✅ Calendar page at `/calendar` with navigation integration
+- ✅ Month/week/day view switching with responsive design
+- ✅ Task events styled by priority (urgent=orange, high=yellow, medium=blue, low=gray)
+- ✅ Overdue task highlighting in red, completed tasks in green
+- ✅ Drag-and-drop task rescheduling with database updates
+- ✅ Click date to create tasks with pre-filled due dates
+- ✅ iCal export button generating downloadable calendar files
+- ✅ Visual legend showing color meanings for all task states
+- ✅ Today highlighting and recurring task indicators
+- ✅ Loading states and responsive mobile design
+
+**Files Created:**
+- `src/app/calendar/page.tsx` - Complete calendar page with task management
+- `src/components/task-calendar.tsx` - Calendar component with React Big Calendar
+- `src/lib/calendar-utils.ts` - Event transformation and styling utilities  
+- `src/lib/ical-export.ts` - iCal format generation and export system
+
+**Technical Implementation:**
+- React Big Calendar with date-fns localizer for reliable date handling
+- Calendar event transformation from task data with proper typing
+- Priority-based styling system with visual status indicators
+- Drag-and-drop API integration for seamless task rescheduling
+- Modal task creation form integrated with existing TaskForm component
+- Standards-compliant iCal export with proper VEVENT formatting
+- Navigation links between dashboard and calendar views
 
 ---
 
