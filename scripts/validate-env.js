@@ -11,8 +11,15 @@ const requiredEnvVars = [
   'GITHUB_CLIENT_SECRET'
 ]
 
+const monitoringEnvVars = [
+  'NEXT_PUBLIC_SENTRY_DSN'
+]
+
 const optionalEnvVars = [
-  'NODE_ENV'
+  'NODE_ENV',
+  'SENTRY_ORG',
+  'SENTRY_PROJECT',
+  'SENTRY_AUTH_TOKEN'
 ]
 
 console.log('🔍 Validating environment variables...\n')
@@ -29,6 +36,18 @@ requiredEnvVars.forEach(varName => {
   } else if (value.includes('your-') || value.includes('...')) {
     console.log(`⚠️  ${varName}: Contains placeholder value`)
     hasErrors = true
+  } else {
+    console.log(`✅ ${varName}: Configured`)
+  }
+})
+
+console.log('\n📊 Monitoring Variables:')
+monitoringEnvVars.forEach(varName => {
+  const value = process.env[varName]
+  if (!value) {
+    console.log(`⚠️  ${varName}: Not set (monitoring disabled)`)
+  } else if (value.includes('your-') || value.includes('...')) {
+    console.log(`⚠️  ${varName}: Contains placeholder value`)
   } else {
     console.log(`✅ ${varName}: Configured`)
   }
@@ -82,6 +101,19 @@ if (nextAuthSecret) {
     console.log('❌ NEXTAUTH_SECRET: Too short (minimum 32 characters)')
     hasErrors = true
   }
+}
+
+// Sentry DSN validation
+const sentryDsn = process.env.NEXT_PUBLIC_SENTRY_DSN
+if (sentryDsn) {
+  if (sentryDsn.startsWith('https://') && sentryDsn.includes('@sentry.io')) {
+    console.log('✅ NEXT_PUBLIC_SENTRY_DSN: Valid Sentry DSN format')
+  } else {
+    console.log('❌ NEXT_PUBLIC_SENTRY_DSN: Invalid format (should be https://...@sentry.io/...)')
+    hasErrors = true
+  }
+} else {
+  console.log('⚠️  NEXT_PUBLIC_SENTRY_DSN: Not set (error tracking disabled)')
 }
 
 console.log('\n' + '='.repeat(50))
