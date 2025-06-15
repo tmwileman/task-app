@@ -31,7 +31,7 @@ export function parseCSV(csvContent: string): ImportTask[] {
   const lines = csvContent.split('\n').filter(line => line.trim())
   if (lines.length === 0) return []
 
-  const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''))
+  const headers = parseCSVRow(lines[0]).map(h => h.trim())
   const tasks: ImportTask[] = []
 
   for (let i = 1; i < lines.length; i++) {
@@ -45,7 +45,7 @@ export function parseCSV(csvContent: string): ImportTask[] {
     }
 
     headers.forEach((header, index) => {
-      const value = values[index]?.trim().replace(/"/g, '') || ''
+      const value = values[index]?.trim() || ''
       
       switch (header.toLowerCase()) {
         case 'title':
