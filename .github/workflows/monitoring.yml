@@ -1,0 +1,250 @@
+name: Production Monitoring
+
+on:
+  schedule:
+    # Run health checks every 5 minutes
+    - cron: '*/5 * * * *'
+  workflow_dispatch: # Allow manual triggering
+
+env:
+  PRODUCTION_URL: ${{ secrets.PRODUCTION_URL || 'https://task-app.vercel.app' }}
+
+jobs:
+  health-check:
+    name: Health Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Health Check
+        id: health
+        run: |
+          # Function to check URL with retry logic
+          check_url() {
+            local url=$1
+            local max_attempts=3
+            local attempt=1
+            
+            while [ $attempt -le $max_attempts ]; do
+              echo "Health check attempt $attempt of $max_attempts for $url"
+              
+              response=$(curl -s -w "%{http_code}" -o /tmp/response.json "$url" || echo "000")
+              
+              if [ "$response" = "200" ]; then
+                echo "✅ Health check passed (HTTP $response)"
+                cat /tmp/response.json | jq '.' 2>/dev/null || cat /tmp/response.json
+                return 0
+              else
+                echo "❌ Health check failed (HTTP $response)"
+                cat /tmp/response.json 2>/dev/null || echo "No response body"
+              fi
+              
+              attempt=$((attempt + 1))
+              [ $attempt -le $max_attempts ] && sleep 10
+            done
+            
+            return 1
+          }
+          
+          # Check main application
+          if check_url "${{ env.PRODUCTION_URL }}"; then
+            echo "app_status=healthy" >> $GITHUB_OUTPUT
+          else
+            echo "app_status=unhealthy" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check health endpoint
+          if check_url "${{ env.PRODUCTION_URL }}/api/healthcheck"; then
+            echo "health_status=healthy" >> $GITHUB_OUTPUT
+          else
+            echo "health_status=unhealthy" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Performance Check
+        id: performance
+        run: |
+          # Performance check with curl timing
+          echo "🚀 Running performance check..."
+          
+          times=$(curl -w "@-" -o /dev/null -s "${{ env.PRODUCTION_URL }}" <<'EOF'
+          time_namelookup: %{time_namelookup}\n
+          time_connect: %{time_connect}\n
+          time_appconnect: %{time_appconnect}\n
+          time_pretransfer: %{time_pretransfer}\n
+          time_redirect: %{time_redirect}\n
+          time_starttransfer: %{time_starttransfer}\n
+          time_total: %{time_total}\n
+          http_code: %{http_code}\n
+          EOF
+          )
+          
+          echo "Performance metrics:"
+          echo "$times"
+          
+          # Extract total time and check if it's acceptable (< 5 seconds)
+          total_time=$(echo "$times" | grep "time_total" | cut -d' ' -f2)
+          
+          if (( $(echo "$total_time < 5.0" | bc -l) )); then
+            echo "performance_status=good" >> $GITHUB_OUTPUT
+            echo "response_time=$total_time" >> $GITHUB_OUTPUT
+          else
+            echo "performance_status=slow" >> $GITHUB_OUTPUT
+            echo "response_time=$total_time" >> $GITHUB_OUTPUT
+          fi
+
+      - name: SSL Certificate Check
+        id: ssl
+        run: |
+          echo "🔒 Checking SSL certificate..."
+          
+          # Extract domain from URL
+          domain=$(echo "${{ env.PRODUCTION_URL }}" | sed 's|https\?://||' | cut -d'/' -f1)
+          
+          # Check SSL certificate expiration
+          cert_info=$(echo | openssl s_client -servername "$domain" -connect "$domain:443" 2>/dev/null | openssl x509 -noout -dates 2>/dev/null)
+          
+          if [ $? -eq 0 ]; then
+            echo "✅ SSL certificate is valid"
+            echo "$cert_info"
+            echo "ssl_status=valid" >> $GITHUB_OUTPUT
+            
+            # Check if certificate expires soon (within 30 days)
+            expiry_date=$(echo "$cert_info" | grep "notAfter" | cut -d'=' -f2)
+            expiry_timestamp=$(date -d "$expiry_date" +%s 2>/dev/null || echo "0")
+            current_timestamp=$(date +%s)
+            days_until_expiry=$(( (expiry_timestamp - current_timestamp) / 86400 ))
+            
+            echo "Certificate expires in $days_until_expiry days"
+            
+            if [ $days_until_expiry -lt 30 ]; then
+              echo "ssl_warning=expires_soon" >> $GITHUB_OUTPUT
+            else
+              echo "ssl_warning=none" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "❌ SSL certificate check failed"
+            echo "ssl_status=invalid" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Database Health Check
+        id: database
+        run: |
+          echo "🗄️ Checking database health..."
+          
+          response=$(curl -s "${{ env.PRODUCTION_URL }}/api/healthcheck")
+          db_status=$(echo "$response" | jq -r '.checks.database.status // "unknown"' 2>/dev/null || echo "unknown")
+          db_response_time=$(echo "$response" | jq -r '.checks.database.responseTime // "unknown"' 2>/dev/null || echo "unknown")
+          
+          echo "Database status: $db_status"
+          echo "Database response time: $db_response_time"
+          
+          if [ "$db_status" = "connected" ]; then
+            echo "database_status=healthy" >> $GITHUB_OUTPUT
+          else
+            echo "database_status=unhealthy" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Alert Issue
+        if: steps.health.outputs.app_status == 'unhealthy' || steps.health.outputs.health_status == 'unhealthy' || steps.database.outputs.database_status == 'unhealthy'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `🚨 Production Health Alert - ${new Date().toISOString()}`;
+            const body = `
+            # Production Health Alert
+            
+            **Timestamp:** ${new Date().toISOString()}
+            **Production URL:** ${{ env.PRODUCTION_URL }}
+            
+            ## Health Check Results
+            - **Application Status:** ${{ steps.health.outputs.app_status }} 
+            - **Health Endpoint:** ${{ steps.health.outputs.health_status }}
+            - **Database Status:** ${{ steps.database.outputs.database_status }}
+            - **Performance:** ${{ steps.performance.outputs.performance_status }}
+            - **Response Time:** ${{ steps.performance.outputs.response_time }}s
+            - **SSL Status:** ${{ steps.ssl.outputs.ssl_status }}
+            
+            ## Next Steps
+            1. Check application logs in Vercel dashboard
+            2. Verify database connectivity
+            3. Check Sentry for recent errors
+            4. Review system metrics
+            
+            ## Automated Actions
+            - [ ] Restart application (if needed)
+            - [ ] Check database connection
+            - [ ] Verify SSL certificate
+            - [ ] Review error logs
+            
+            *This issue was automatically created by the monitoring workflow.*
+            `;
+            
+            // Check if there's already an open alert issue
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['alert', 'production'],
+              state: 'open'
+            });
+            
+            if (issues.data.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['alert', 'production', 'bug']
+              });
+            }
+
+      - name: Update Status Badge
+        if: always()
+        run: |
+          # This would update a status badge or external monitoring service
+          echo "Updating status badge with current health status..."
+          
+          if [ "${{ steps.health.outputs.app_status }}" = "healthy" ] && [ "${{ steps.database.outputs.database_status }}" = "healthy" ]; then
+            echo "Overall status: ✅ Healthy"
+          else
+            echo "Overall status: ❌ Unhealthy"
+          fi
+
+  # Close alert issues when health is restored
+  close-resolved-alerts:
+    name: Close Resolved Alerts
+    runs-on: ubuntu-latest
+    needs: health-check
+    if: needs.health-check.outputs.app_status == 'healthy' && needs.health-check.outputs.database_status == 'healthy'
+    
+    steps:
+      - name: Close resolved alert issues
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Find open alert issues
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['alert', 'production'],
+              state: 'open'
+            });
+            
+            // Close issues since health is restored
+            for (const issue of issues.data) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: `✅ **Health Restored**\n\nAll systems are now healthy. Closing this alert.\n\n**Resolution Time:** ${new Date().toISOString()}\n\n*This comment was automatically added by the monitoring workflow.*`
+              });
+              
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed',
+                labels: [...issue.labels.map(l => l.name), 'resolved']
+              });
+            }

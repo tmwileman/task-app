@@ -98,7 +98,7 @@ export function DataExportModal({ onClose }: DataExportModalProps) {
       if (response.ok) {
         const content = await response.text()
         const contentDisposition = response.headers.get('Content-Disposition')
-        const filename = contentDisposition?.match(/filename="([^"]*)"/))?.[1] || 
+        const filename = contentDisposition?.match(/filename="([^"]*)"/)?.[1] || 
           `task-export.${selectedFormat}`
         
         downloadFile(content, filename, metadata.formats[selectedFormat].mimeType)
